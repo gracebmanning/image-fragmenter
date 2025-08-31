@@ -4,7 +4,7 @@ Glitch your pics!! By [Grace Manning](https://graceis.online/).
 
 ## How it works:
 
-The basis of image fragmenter is a script I wrote while playing around with image cropping effects in Python:
+The basis of image fragmenter is a script I wrote while playing around with image cropping effects in Python. The script will randomly choose a rectangular section of the image to crop; that crop is then pasted onto a random place on the original image. The next crop is taken from the original image, but pasted onto the latest image in the series. That is repeated NUM_LOOPS times.
 
 ```
 import argparse
