@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/*
+font-family: "Rubik Glitch", system-ui;
+font-family: 'Inter', sans-serif;
+font-family: "IBM Plex Sans", sans-serif;
+*/
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&display=swap");
+
+body {
+  font-family: "IBM Plex Sans", sans-serif;
+  background-color: #f0f2f5;
+}
