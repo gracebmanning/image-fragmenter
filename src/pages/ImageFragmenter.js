@@ -1,7 +1,9 @@
-import { useState, useEffect,useRef } from 'react';
+import { useState, useRef } from 'react';
 import { TbUpload, TbBolt, TbDownload } from "react-icons/tb";
 import JSZip from 'jszip';
 import GIF from 'gif.js';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { toBlobURL } from '@ffmpeg/util';
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
@@ -11,20 +13,11 @@ export default function ImageFragmenter() {
     const [frameDuration, setFrameDuration] = useState(200);
     const [status, setStatus] = useState('Select an image to start.');
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(null); // 'zip', 'gif', 'video', or null
+    const [gifProgress, setGifProgress] = useState(0);
+    const [videoProgress, setVideoProgress] = useState(0);
     const fileInputRef = useRef(null);
-
-    useEffect(() => {
-        const loadScript = (src, id) => {
-            if (document.getElementById(id)) return;
-            const script = document.createElement('script');
-            script.src = src;
-            script.id = id;
-            script.async = true;
-            document.body.appendChild(script);
-        };
-        loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js", "jszip-script");
-        loadScript("https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js", "gif-script");
-    }, []);
+    const ffmpegRef = useRef(null);
 
     const handleFileSelect = (event) => {
         const file = event.target.files[0];
@@ -103,6 +96,7 @@ export default function ImageFragmenter() {
             alert('JSZip library not loaded yet. Please wait.');
             return;
         }
+        setIsDownloading('zip');
         setStatus('📦 Creating ZIP file...');
         const zip = new JSZip();
         generatedFrames.forEach((blob, i) => {
@@ -111,6 +105,7 @@ export default function ImageFragmenter() {
         const zipBlob = await zip.generateAsync({ type: 'blob' });
         triggerDownload(zipBlob, 'glitch-images.zip');
         setStatus('ZIP download started!');
+        setIsDownloading(null);
     };
 
     const downloadGif = () => {
@@ -118,14 +113,35 @@ export default function ImageFragmenter() {
             alert('gif.js library not loaded yet. Please wait.');
             return;
         }
+        setIsDownloading('gif');
+        setGifProgress(0);
         setStatus('🎨 Creating GIF...');
+
         const gif = new GIF({
-            workers: 2,
+            workers: 4,
             quality: 10,
             width: originalImage.width,
             height: originalImage.height,
             workerScript: '/js/gif.worker.js',
         });
+
+        gif.on('progress', (p) => {
+            const progressPercent = Math.round(p * 100);
+            setGifProgress(progressPercent);
+            setStatus(`🎨 Rendering GIF: ${progressPercent}%`);
+        })
+
+        gif.on('finished', (blob) => {
+            setGifProgress(100);
+            setStatus('✅ GIF Ready! Starting download...');
+            triggerDownload(blob, 'animation.gif');
+            // Reset status back to the default post-generation message
+            setTimeout(() => {
+                setIsDownloading(null);
+                setGifProgress(0);
+                setStatus(`✅ ${generatedFrames.length} frames generated! Choose a download format.`);
+            }, 2000);
+        })
 
         const imageLoadPromises = generatedFrames.map(blob => {
             return new Promise(resolve => {
@@ -140,16 +156,25 @@ export default function ImageFragmenter() {
                 gif.addFrame(img, { delay: frameDuration });
                 URL.revokeObjectURL(img.src);
             });
-            gif.on('finished', (blob) => {
-                triggerDownload(blob, 'animation.gif');
-                setStatus('GIF download started!');
-            });
             gif.render();
         });
     };
 
     const downloadVideo = async () => {
-        setStatus('🎬 Creating video...');
+        if (typeof FFmpeg === 'undefined') {
+            setStatus('❌ FFmpeg library not loaded yet. Please wait.');
+            return;
+        }
+        if (typeof MediaRecorder === 'undefined') {
+            setStatus('❌ Video recording not supported in this browser.');
+            return;
+        }
+
+        setIsDownloading('video');
+        setVideoProgress(0);
+
+        // Record frames to a WebM Blob
+        setStatus('🎬 Recording frames...');
         const canvas = document.createElement('canvas');
         canvas.width = originalImage.width;
         canvas.height = originalImage.height;
@@ -159,19 +184,63 @@ export default function ImageFragmenter() {
         
         const chunks = [];
         recorder.ondataavailable = (e) => chunks.push(e.data);
-        recorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            triggerDownload(blob, 'animation.webm');
-            setStatus('Video download started!');
-        };
+        
+        const recordingPromise = new Promise(resolve => {
+            recorder.onstop = () => {
+                const webmBlob = new Blob(chunks, { type: 'video/webm' });
+                resolve(webmBlob);
+            };
+        });
 
         recorder.start();
-        for (const frameBlob of generatedFrames) {
+        for (let i = 0; i < generatedFrames.length; i++) {
+            const frameBlob = generatedFrames[i];
             const bmp = await createImageBitmap(frameBlob);
             ctx.drawImage(bmp, 0, 0);
+            const progress = Math.round(((i + 1) / generatedFrames.length) * 100);
+            setStatus(`🎬 Recording frames: ${progress}%`);
             await new Promise(resolve => setTimeout(resolve, frameDuration));
         }
         recorder.stop();
+        const webmBlob = await recordingPromise;
+
+        // Transcode WebM to MP4 using FFmpeg
+        setStatus('🚀 Loading FFmpeg...');
+        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd'
+        const ffmpeg = new FFmpeg();
+        ffmpegRef.current = ffmpeg;
+
+        ffmpeg.on('progress', ({ progress }) => {
+            const progressPercent = Math.round(progress * 100);
+            setVideoProgress(progressPercent);
+            setStatus(` transcoding to MP4: ${progressPercent}%`);
+        });
+
+        await ffmpeg.load({
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+        setStatus('💾 Writing file to memory...');
+        await ffmpeg.writeFile('input.webm', new Uint8Array(await webmBlob.arrayBuffer()));
+        
+        setStatus('🚀 Transcoding to MP4...');
+        await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', 'output.mp4']);
+        
+        setStatus('📦 Reading result...');
+        const data = await ffmpeg.readFile('output.mp4');
+        
+        const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
+        triggerDownload(mp4Blob, 'animation.mp4');
+        
+        setStatus('✅ MP4 download started!');
+        await ffmpeg.terminate();
+        ffmpegRef.current = null;
+        
+        setTimeout(() => {
+            setIsDownloading(null);
+            setVideoProgress(0);
+            setStatus(`✅ ${generatedFrames.length} frames generated! Choose a download format.`);
+        }, 2000);
     };
 
 
@@ -229,16 +298,33 @@ export default function ImageFragmenter() {
                     )}
 
                     <div className="text-center text-base text-slate-400 h-5">{status}</div>
+
+                    {/* GIF PROGRESS BAR */}
+                    {isDownloading === 'gif' && (
+                        <div className="w-full bg-slate-700 rounded-full h-2.5 my-2">
+                            <div 
+                                className="bg-lime-500 h-2.5 rounded-full transition-all duration-150" 
+                                style={{ width: `${gifProgress}%` }}
+                            ></div>
+                        </div>
+                    )}
+
+                    {/* VIDEO PROGRESS BAR */}
+                    {isDownloading === 'video' && videoProgress > 0 && (
+                        <div className="w-full bg-slate-700 rounded-full h-2.5 my-2">
+                            <div className="bg-lime-500 h-2.5 rounded-full transition-all duration-150" style={{ width: `${videoProgress}%` }}></div>
+                        </div>
+                    )}
                     
                     {generatedFrames.length > 0 && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 border-t border-slate-700">
-                            <button onClick={downloadZip} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            <button onClick={downloadZip} disabled={isDownloading} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
                                 <TbDownload className="w-5 h-5 mr-2" /> ZIP
                             </button>
-                            <button onClick={downloadGif} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            <button onClick={downloadGif} disabled={isDownloading} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
                                 <TbDownload className="w-5 h-5 mr-2" /> GIF
                             </button>
-                            <button onClick={downloadVideo} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                            <button onClick={downloadVideo} disabled={isDownloading} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
                                 <TbDownload className="w-5 h-5 mr-2" /> Video
                             </button>
                         </div>
