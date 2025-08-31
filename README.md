@@ -1,70 +1,61 @@
-# Getting Started with Create React App
+# Image Fragmenter
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Glitch your pics!! By [Grace Manning](https://graceis.online/).
 
-## Available Scripts
+## How it works:
 
-In the project directory, you can run:
+The basis of image fragmenter is a script I wrote while playing around with image cropping effects in Python:
 
-### `npm start`
+```
+import argparse
+from PIL import Image
+import random
+import string
+import os
+import imageio.v3 as iio
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+NUM_LOOPS = 40
+DURATION = 5
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
 
-### `npm test`
+def create_images(image_filepath):
+    original = Image.open(image_filepath)
+    img = original.copy()
+    filenames = []
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+    dir_name = ''.join(random.choices(
+        string.ascii_letters + string.digits, k=8))
+    os.mkdir(dir_name)
 
-### `npm run build`
+    img.save(f'./{dir_name}/img0.jpg')
+    filenames.append(f'./{dir_name}/img0.jpg')
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+    width, height = img.size
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+    for i in range(NUM_LOOPS):
+        left = random.randint(0, width)
+        top = random.randint(0, height)
+        right = left + random.randint(0, (width-left))
+        bottom = top + random.randint(0, (height-top))
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+        crop = original.crop((left, top, right, bottom))
+        img.paste(crop, (random.randint(0, width), random.randint(0, height)))
+        filename = f'./{dir_name}/img{i+1}.jpg'
+        img.save(filename)
+        filenames.append(filename)
 
-### `npm run eject`
+    images = []
+    for file in filenames:
+        images.append(iio.imread(file))
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+    iio.imwrite(f"./{dir_name}/animation.gif", images, duration=500, loop=0)
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(prog="imageCropReplicator")
+    parser.add_argument("image_file", help="Path to the input image file.")
+    args = parser.parse_args()
+    image_filepath = args.image_file
+    create_images(image_filepath)
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```
