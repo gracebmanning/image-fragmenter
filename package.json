@@ -11,6 +11,7 @@
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "98.css": "^0.1.21",
     "ffmpeg": "^0.0.4",
     "gif.js": "^0.2.0",
     "jszip": "^3.10.1",
