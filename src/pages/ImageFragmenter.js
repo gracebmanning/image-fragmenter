@@ -1,6 +1,5 @@
 import { useState, useEffect,useRef } from 'react';
 import { TbUpload, TbBolt, TbDownload } from "react-icons/tb";
-import { GIF_WORKER_SCRIPT_URL } from '../utility/gifjs-worker';
 import JSZip from 'jszip';
 import GIF from 'gif.js';
 
@@ -125,7 +124,7 @@ export default function ImageFragmenter() {
             quality: 10,
             width: originalImage.width,
             height: originalImage.height,
-            workerScript: GIF_WORKER_SCRIPT_URL,
+            workerScript: '/js/gif.worker.js',
         });
 
         const imageLoadPromises = generatedFrames.map(blob => {
@@ -177,73 +176,78 @@ export default function ImageFragmenter() {
 
 
     return (
-        <main className="bg-slate-900 text-slate-200 min-h-screen flex flex-col items-center justify-center p-4">
-            <div className="w-full max-w-md bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 space-y-6">
-                <div className="text-center">
-                    <h1 className="text-3xl font-bold text-white">Image Fragmenter</h1>
-                    <p className="text-slate-400 mt-2">glitch your pics!!</p>
-                </div>
-
-                <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef}
-                    onChange={handleFileSelect}
-                    className="hidden"
-                />
-
-                {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" className="w-full h-auto rounded-lg border-2 border-slate-700" />
-                ) : (
-                    <button
-                        onClick={() => fileInputRef.current.click()}
-                        className="w-full flex flex-col items-center justify-center border-2 border-dashed border-slate-600 rounded-lg p-12 text-slate-400 hover:bg-slate-700 hover:border-slate-500 transition-colors"
-                    >
-                        <TbUpload className="w-10 h-10 mb-2" />
-                        <span>Click to Upload Image</span>
-                    </button>
-                )}
-
-                {originalImage && (
-                    <>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label htmlFor="frameCount" className="block text-sm font-medium text-slate-300 mb-1">Frames</label>
-                                <input id="frameCount" type="number" value={frameCount} onChange={(e) => setFrameCount(Number(e.target.value))} className="w-full bg-slate-700 text-white rounded-md border-slate-600 p-2 focus:ring-2 focus:ring-slate-500" />
-                            </div>
-                            <div>
-                                <label htmlFor="frameDuration" className="block text-sm font-medium text-slate-300 mb-1">Duration (ms)</label>
-                                <input id="frameDuration" type="number" value={frameDuration} onChange={(e) => setFrameDuration(Number(e.target.value))} className="w-full bg-slate-700 text-white rounded-md border-slate-600 p-2 focus:ring-2 focus:ring-slate-500" />
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={generateFrames}
-                            disabled={isProcessing}
-                            className="w-full flex items-center justify-center bg-lime-800 text-white font-bold py-3 px-4 rounded-lg hover:bg-lime-900 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
-                        >
-                            {isProcessing && <TbBolt className="w-5 h-5 mr-2 animate-pulse" />}
-                            {isProcessing ? 'Generating...' : 'Generate Art'}
-                        </button>
-                    </>
-                )}
-
-                <div className="text-center text-base text-slate-400 h-5">{status}</div>
-                
-                {generatedFrames.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 border-t border-slate-700">
-                        <button onClick={downloadZip} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                            <TbDownload className="w-5 h-5 mr-2" /> ZIP
-                        </button>
-                        <button onClick={downloadGif} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                            <TbDownload className="w-5 h-5 mr-2" /> GIF
-                        </button>
-                        <button onClick={downloadVideo} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                            <TbDownload className="w-5 h-5 mr-2" /> Video
-                        </button>
+        <div className="w-full min-h-screen flex flex-col items-center justify-center">
+            <main className="w-full bg-slate-900 text-slate-200 flex flex-col flex-grow items-center justify-center p-4">
+                <div className="w-full max-w-md bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 space-y-6">
+                    <div className="text-center">
+                        <h1 className="text-3xl font-bold text-white">Image Fragmenter</h1>
+                        <p className="text-slate-400 mt-2">glitch your pics!!</p>
                     </div>
-                )}
-            </div>
-        </main>
+
+                    <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        onChange={handleFileSelect}
+                        className="hidden"
+                    />
+
+                    {imagePreview ? (
+                        <img src={imagePreview} alt="Preview" className="w-full h-auto rounded-lg border-2 border-slate-700" />
+                    ) : (
+                        <button
+                            onClick={() => fileInputRef.current.click()}
+                            className="w-full flex flex-col items-center justify-center border-2 border-dashed border-slate-600 rounded-lg p-12 text-slate-400 hover:bg-slate-700 hover:border-slate-500 transition-colors"
+                        >
+                            <TbUpload className="w-10 h-10 mb-2" />
+                            <span>Click to Upload Image</span>
+                        </button>
+                    )}
+
+                    {originalImage && (
+                        <>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="frameCount" className="block text-sm font-medium text-slate-300 mb-1">Frames</label>
+                                    <input id="frameCount" type="number" value={frameCount} onChange={(e) => setFrameCount(Number(e.target.value))} className="w-full bg-slate-700 text-white rounded-md border-slate-600 p-2 focus:ring-2 focus:ring-slate-500" />
+                                </div>
+                                <div>
+                                    <label htmlFor="frameDuration" className="block text-sm font-medium text-slate-300 mb-1">Duration (ms)</label>
+                                    <input id="frameDuration" type="number" value={frameDuration} onChange={(e) => setFrameDuration(Number(e.target.value))} className="w-full bg-slate-700 text-white rounded-md border-slate-600 p-2 focus:ring-2 focus:ring-slate-500" />
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={generateFrames}
+                                disabled={isProcessing}
+                                className="w-full flex items-center justify-center bg-lime-800 text-white font-bold py-3 px-4 rounded-lg hover:bg-lime-900 disabled:bg-slate-600 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {isProcessing && <TbBolt className="w-5 h-5 mr-2 animate-pulse" />}
+                                {isProcessing ? 'Generating...' : 'Generate Art'}
+                            </button>
+                        </>
+                    )}
+
+                    <div className="text-center text-base text-slate-400 h-5">{status}</div>
+                    
+                    {generatedFrames.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 border-t border-slate-700">
+                            <button onClick={downloadZip} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                                <TbDownload className="w-5 h-5 mr-2" /> ZIP
+                            </button>
+                            <button onClick={downloadGif} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                                <TbDownload className="w-5 h-5 mr-2" /> GIF
+                            </button>
+                            <button onClick={downloadVideo} className="flex items-center justify-center bg-lime-900 hover:bg-lime-800 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                                <TbDownload className="w-5 h-5 mr-2" /> Video
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </main>
+            <footer className="w-full bg-slate-800 text-slate-200 flex flex-col items-center justify-center p-5 pb-16 md:pb-6">
+                <p>Created by <a href="https://graceis.online/" target="_blank" rel="noreferrer" className="underline">Grace Manning</a>.</p>
+            </footer>
+        </div>
     );
 }
