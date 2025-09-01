@@ -1,10 +1,12 @@
 import '98.css';
 import { useState, useRef } from 'react';
-import { TbUpload, TbBolt, TbDownload } from "react-icons/tb";
+import { TbBolt, TbDownload } from "react-icons/tb";
 import JSZip from 'jszip';
 import GIF from 'gif.js';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
+import mouse from '../assets/mouse_speed.png';
+import globe from '../assets/internet_connection_wiz-0.png';
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
@@ -42,7 +44,7 @@ export default function ImageFragmenter() {
         if (!originalImage) return;
 
         setIsProcessing(true);
-        setStatus('⚙️ Generating frames...');
+        setStatus('Generating frames...');
         const frames = [];
         
         const canvas = document.createElement('canvas');
@@ -69,7 +71,7 @@ export default function ImageFragmenter() {
             ctx.drawImage(cropCanvas, pasteX, pasteY);
 
             frames.push(await getCanvasBlob(canvas));
-            setStatus(`⚙️ Generating frame ${i + 1} of ${frameCount}...`);
+            setStatus(`Generating frame ${i + 1} of ${frameCount}...`);
         }
         
         setGeneratedFrames(frames);
@@ -98,7 +100,7 @@ export default function ImageFragmenter() {
             return;
         }
         setIsDownloading('zip');
-        setStatus('📦 Creating ZIP file...');
+        setStatus('Creating ZIP file...');
         const zip = new JSZip();
         generatedFrames.forEach((blob, i) => {
             zip.file(`frame_${String(i).padStart(4, '0')}.jpg`, blob);
@@ -116,7 +118,7 @@ export default function ImageFragmenter() {
         }
         setIsDownloading('gif');
         setGifProgress(0);
-        setStatus('🎨 Creating GIF...');
+        setStatus('Creating GIF...');
 
         const gif = new GIF({
             workers: 4,
@@ -260,7 +262,7 @@ export default function ImageFragmenter() {
                     </div>
 
                     <div className="window-body">
-                        <p className="text-center text-lg text-neutral-800 mt-2">glitch your pics!!</p>
+                        <p className="text-center text-lg text-neutral-800 mb-2">glitch your pics!!</p>
                     
                         <input
                             type="file"
@@ -272,16 +274,16 @@ export default function ImageFragmenter() {
                     
                         {imagePreview ? (
                             <div className="w-full flex flex-col justify-center items-center">
-                                <img src={imagePreview} alt="Preview" className="w-[80%] h-auto rounded-sm border-2 border-black" />
+                                <img src={imagePreview} alt="Preview" className="w-[50%] h-auto rounded-sm border-2 border-black" />
                             </div>
                         ) : (
 
                             <div className="field-row flex flex-col justify-center m-4">
                                 <button
                                     onClick={() => fileInputRef.current.click()}
-                                    className="w-full flex flex-col items-center justify-center"
+                                    className="w-full flex flex-col items-center justify-center hover:scale-105"
                                 >
-                                    <TbUpload className="w-10 h-10 m-2 text-neutral-800" />
+                                    <img src={mouse} alt="cursor icon with speed lines" className="w-10 h-10 m-2" />
                                     <span className="m-2 text-neutral-800 text-sm">Click to Upload Image</span>
                                 </button>
                             </div>
@@ -309,7 +311,7 @@ export default function ImageFragmenter() {
                             </>
                         )}
 
-                        <div className="text-center text-base text-neutral-800 h-5 m-4">{status}</div>
+                        <div className="text-center text-base text-neutral-800 min-h-5 m-4">{status}</div>
                         
                         {/* GIF PROGRESS BAR */}
                         {isDownloading === 'gif' && (
@@ -345,8 +347,10 @@ export default function ImageFragmenter() {
                     
                 </div>
             </main>
-            <footer className="w-full font-sans text-base bg-neutral-300 text-neutral-600 flex flex-col items-center justify-center p-5 pb-16 md:pb-6">
-                <p>Created by <a href="https://graceis.online/" target="_blank" rel="noreferrer" className="underline">Grace Manning</a>.</p>
+            <footer className="w-full font-sans text-base bg-neutral-300 text-neutral-600 flex flex-col items-center justify-center p-4">
+                <p className="mb-1">Created by <a href="https://graceis.online/" target="_blank" rel="noreferrer" className="underline">Grace Manning</a>.</p>
+                <p className="mb-1">Enjoyed it? Send a <a href="https://ko-fi.com/graceisonline" target="_blank" rel="noreferrer" className="underline">thank you</a> :-)</p>
+                <img src={globe} alt="cursor icon with speed lines" className="w-5 h-5" />
             </footer>
         </div>
     );
