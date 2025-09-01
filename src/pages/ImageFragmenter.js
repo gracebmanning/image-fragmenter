@@ -345,7 +345,7 @@ export default function ImageFragmenter() {
                     
                 </div>
             </main>
-            <footer className="w-full font-sans text-base bg-neutral-300 text-neutral-300 flex flex-col items-center justify-center p-5 pb-16 md:pb-6">
+            <footer className="w-full font-sans text-base bg-neutral-300 text-neutral-600 flex flex-col items-center justify-center p-5 pb-16 md:pb-6">
                 <p>Created by <a href="https://graceis.online/" target="_blank" rel="noreferrer" className="underline">Grace Manning</a>.</p>
             </footer>
         </div>
