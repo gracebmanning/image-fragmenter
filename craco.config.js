@@ -2,7 +2,7 @@ module.exports = {
   devServer: {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
     },
   },
   webpack: {
@@ -16,9 +16,7 @@ module.exports = {
         },
         ...(webpackConfig.ignoreWarnings || []),
       ];
-
       return webpackConfig;
     },
   },
 };
-
