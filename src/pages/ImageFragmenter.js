@@ -315,17 +315,15 @@ export default function ImageFragmenter() {
                         
                         {/* GIF PROGRESS BAR */}
                         {isDownloading === 'gif' && (
-                            <div className="status-bar mt-4 h-2.5 my-2">
-                                <div className="status-bar-field" style={{width: `${gifProgress}%`, backgroundColor: '#008000'}}></div>
-                                <div className="status-bar-field"></div>
+                            <div class="progress-indicator segmented mt-4 h-2.5 my-2">
+                                <span class="progress-indicator-bar" style={{width: `${gifProgress}%`}} />
                             </div>
                         )}
 
                         {/* VIDEO PROGRESS BAR */}
                         {isDownloading === 'video' && videoProgress > 0 && (
-                            <div className="status-bar mt-4 h-2.5 my-2">
-                                <div className="status-bar-field" style={{width: `${videoProgress}%`, backgroundColor: '#008000'}}></div>
-                                <div className="status-bar-field"></div>
+                            <div class="progress-indicator segmented mt-4 h-2.5 my-2">
+                                <span class="progress-indicator-bar" style={{width: `${gifProgress}%`}} />
                             </div>
                         )}
 
