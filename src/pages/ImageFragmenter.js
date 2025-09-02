@@ -1,5 +1,5 @@
 import '98.css';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { TbBolt, TbDownload } from "react-icons/tb";
 import JSZip from 'jszip';
 import GIF from 'gif.js';
@@ -13,19 +13,53 @@ export default function ImageFragmenter() {
     const [imagePreview, setImagePreview] = useState('');
     const [generatedFrames, setGeneratedFrames] = useState([]);
     const [frameCount, setFrameCount] = useState(40);
-    const [frameDuration, setFrameDuration] = useState(200);
+
+    // Status and Loading State
     const [status, setStatus] = useState('Select an image to start.');
     const [isProcessing, setIsProcessing] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(null); // 'zip', 'gif', 'video', or null
+    const [isDownloading, setIsDownloading] = useState(null); // 'zip','video', or null ('gif' not needed)
     const [gifProgress, setGifProgress] = useState(0);
     const [videoProgress, setVideoProgress] = useState(0);
+    
+    // Refs
     const fileInputRef = useRef(null);
     const ffmpegRef = useRef(null);
+    const isInitialRender = useRef(true);
+
+    // Interactive GIF State
+    const [gifDelay, setGifDelay] = useState(100);
+    const [gifPreviewUrl, setGifPreviewUrl] = useState('');
+    const [lastGifBlob, setLastGifBlob] = useState(null);
+    const [isRenderingGif, setIsRenderingGif] = useState(false);
+    
+    // re-render gif on delay change
+    useEffect(() => {
+        if (isInitialRender.current || generatedFrames.length === 0) {
+            isInitialRender.current = false;
+            return;
+        }
+        renderGifPreview(gifDelay);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gifDelay]);
+
+    const loadFFmpeg = async () => {
+        if (ffmpegRef.current && ffmpegRef.current.loaded) return;
+        const ffmpeg = new FFmpeg();
+        ffmpegRef.current = ffmpeg;
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
+        try {
+            await ffmpeg.load({
+                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            });
+        } catch (error) {
+            console.error("FFmpeg loading failed:", error);
+        }
+    };
 
     const handleFileSelect = (event) => {
         const file = event.target.files[0];
         if (!file || !file.type.startsWith('image/')) return;
-
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
@@ -34,6 +68,9 @@ export default function ImageFragmenter() {
                 setImagePreview(e.target.result);
                 setStatus('Image loaded. Ready to generate.');
                 setGeneratedFrames([]);
+                setGifPreviewUrl('');
+                setLastGifBlob(null);
+                loadFFmpeg();
             };
             img.src = e.target.result;
         };
@@ -44,6 +81,8 @@ export default function ImageFragmenter() {
         if (!originalImage) return;
 
         setIsProcessing(true);
+        setGifPreviewUrl('');
+        setLastGifBlob(null);
         setStatus('Generating frames...');
         const frames = [];
         
@@ -75,8 +114,53 @@ export default function ImageFragmenter() {
         }
         
         setGeneratedFrames(frames);
-        setStatus(`${frames.length} frames generated! Choose a download format.`);
         setIsProcessing(false);
+        renderGifPreview(gifDelay, frames);
+    };
+
+    const renderGifPreview = async (delay, framesToRender = generatedFrames) => {
+        if (framesToRender.length === 0) return;
+        setIsRenderingGif(true);
+        setGifProgress(0);
+        setStatus('Rendering GIF preview...');
+
+        const gif = new GIF({
+            workers: 4,
+            quality: 10,
+            width: originalImage.width,
+            height: originalImage.height,
+            workerScript: '/js/gif.worker.js',
+        });
+
+        gif.on('progress', (p) => {
+            const progressPercent = Math.round(p * 100);
+            setGifProgress(progressPercent);
+            setStatus(`Rendering preview: ${progressPercent}%`);
+        });
+
+        const imageElements = await Promise.all(framesToRender.map(blob => {
+            return new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.src = URL.createObjectURL(blob);
+            });
+        }));
+
+        imageElements.forEach(img => {
+            gif.addFrame(img, { delay: delay });
+            URL.revokeObjectURL(img.src);
+        });
+
+        gif.on('finished', (blob) => {
+            const url = URL.createObjectURL(blob);
+            setGifPreviewUrl(url);
+            setLastGifBlob(blob);
+            setIsRenderingGif(false);
+            setGifProgress(100);
+            setStatus('Adjust speed with the slider, then download!');
+        });
+
+        gif.render();
     };
 
     const getCanvasBlob = (canvas) => {
@@ -112,60 +196,14 @@ export default function ImageFragmenter() {
     };
 
     const downloadGif = () => {
-        if (typeof GIF === 'undefined') {
-            alert('gif.js library not loaded yet. Please wait.');
-            return;
-        }
-        setIsDownloading('gif');
-        setGifProgress(0);
-        setStatus('Creating GIF...');
-
-        const gif = new GIF({
-            workers: 4,
-            quality: 10,
-            width: originalImage.width,
-            height: originalImage.height,
-            workerScript: '/js/gif.worker.js',
-        });
-
-        gif.on('progress', (p) => {
-            const progressPercent = Math.round(p * 100);
-            setGifProgress(progressPercent);
-            setStatus(`Rendering GIF: ${progressPercent}%`);
-        })
-
-        gif.on('finished', (blob) => {
-            setGifProgress(100);
-            setStatus('GIF Ready! Starting download...');
-            triggerDownload(blob, 'animation.gif');
-            // Reset status back to the default post-generation message
-            setTimeout(() => {
-                setIsDownloading(null);
-                setGifProgress(0);
-                setStatus(`${generatedFrames.length} frames generated! Choose a download format.`);
-            }, 2000);
-        })
-
-        const imageLoadPromises = generatedFrames.map(blob => {
-            return new Promise(resolve => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.src = URL.createObjectURL(blob);
-            });
-        });
-
-        Promise.all(imageLoadPromises).then(imageElements => {
-            imageElements.forEach(img => {
-                gif.addFrame(img, { delay: frameDuration });
-                URL.revokeObjectURL(img.src);
-            });
-            gif.render();
-        });
+        setStatus('GIF download started!');
+        triggerDownload(lastGifBlob, 'animation.gif');
     };
 
     const downloadVideo = async () => {
-        if (typeof FFmpeg === 'undefined') {
-            setStatus('FFmpeg library not loaded yet. Please wait.');
+        if (!ffmpegRef.current || !ffmpegRef.current.loaded) {
+            setStatus('FFmpeg is not ready. Please wait a moment.');
+            await loadFFmpeg();
             return;
         }
         if (typeof MediaRecorder === 'undefined') {
@@ -197,32 +235,22 @@ export default function ImageFragmenter() {
 
         recorder.start();
         for (let i = 0; i < generatedFrames.length; i++) {
-            const frameBlob = generatedFrames[i];
-            const bmp = await createImageBitmap(frameBlob);
+            const bmp = await createImageBitmap(generatedFrames[i]);
             ctx.drawImage(bmp, 0, 0);
-            const progress = Math.round(((i + 1) / generatedFrames.length) * 100);
-            setStatus(`Recording frames: ${progress}%`);
-            await new Promise(resolve => setTimeout(resolve, frameDuration));
+            setStatus(`Recording frame ${i + 1} of ${generatedFrames.length}`);
+            await new Promise(r => setTimeout(r, gifDelay));
         }
         recorder.stop();
         const webmBlob = await recordingPromise;
 
         // Transcode WebM to MP4 using FFmpeg
-        setStatus('Loading FFmpeg...');
-        const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd'
-        const ffmpeg = new FFmpeg();
-        ffmpegRef.current = ffmpeg;
-
+        const ffmpeg = ffmpegRef.current;
         ffmpeg.on('progress', ({ progress }) => {
-            const progressPercent = Math.round(progress * 100);
+            const progressPercent = Math.min(100, Math.round(progress * 100));
             setVideoProgress(progressPercent);
-            setStatus(` transcoding to MP4: ${progressPercent}%`);
+            setStatus(`Transcoding to MP4: ${progressPercent}%`);
         });
 
-        await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-        });
         setStatus('Writing file to memory...');
         await ffmpeg.writeFile('input.webm', new Uint8Array(await webmBlob.arrayBuffer()));
         
@@ -242,10 +270,11 @@ export default function ImageFragmenter() {
         setTimeout(() => {
             setIsDownloading(null);
             setVideoProgress(0);
-            setStatus(`${generatedFrames.length} frames generated! Choose a download format.`);
+            setStatus(`Adjust speed with the slider, then download!`);
         }, 2000);
     };
 
+    const allBusy = isProcessing || isDownloading || isRenderingGif;
 
     return (
         <div className="w-full min-h-screen flex flex-col items-center justify-center">
@@ -271,18 +300,16 @@ export default function ImageFragmenter() {
                             onChange={handleFileSelect}
                             className="hidden"
                         />
-                    
-                        {imagePreview ? (
-                            <div className="w-full flex flex-col justify-center items-center">
+
+                        {imagePreview && !gifPreviewUrl && (
+                             <div className="w-full flex flex-col justify-center items-center">
                                 <img src={imagePreview} alt="Preview" className="w-[50%] h-auto rounded-sm border-2 border-black" />
                             </div>
-                        ) : (
+                        )}
 
+                        {!imagePreview && (
                             <div className="field-row flex flex-col justify-center m-4">
-                                <button
-                                    onClick={() => fileInputRef.current.click()}
-                                    className="w-full flex flex-col items-center justify-center hover:scale-105"
-                                >
+                                <button onClick={() => fileInputRef.current.click()} className="w-full flex flex-col items-center justify-center hover:scale-105">
                                     <img src={mouse} alt="cursor icon with speed lines" className="w-10 h-10 m-2" />
                                     <span className="m-2 text-neutral-800 text-sm">Click to Upload Image</span>
                                 </button>
@@ -293,20 +320,11 @@ export default function ImageFragmenter() {
                             <>
                                 <div className="field-row mt-4">
                                     <label htmlFor="frameCount" className="text-sm font-medium text-neutral-800">Frames</label>
-                                    <input id="frameCount" type="number" value={frameCount} onChange={(e) => setFrameCount(Number(e.target.value))} className="text-neutral-700 text-xs" />
+                                    <input id="frameCount" type="number" value={frameCount} onChange={(e) => setFrameCount(Number(e.target.value))} className="text-neutral-700 text-xs" disabled={allBusy}/>
                                 </div>
-                                <div className="field-row mt-4">
-                                    <label htmlFor="frameDuration" className="text-sm font-medium text-neutral-800">Duration (ms)</label>
-                                    <input id="frameDuration" type="number" value={frameDuration} onChange={(e) => setFrameDuration(Number(e.target.value))} className="text-neutral-700 text-xs" />
-                                </div>
-
-                                <button
-                                    onClick={generateFrames}
-                                    disabled={isProcessing}
-                                    className="w-full mt-4 p-2 text-sm flex items-center justify-center disabled:cursor-not-allowed"
-                                >
-                                    {isProcessing && <TbBolt className="w-5 h-5 mr-2 animate-pulse" />}
-                                    {isProcessing ? 'Generating...' : 'Generate Art'}
+                                <button onClick={generateFrames} disabled={allBusy} className="w-full mt-4 p-2 text-sm flex items-center justify-center disabled:cursor-not-allowed">
+                                    {(isProcessing || isRenderingGif) && <TbBolt className="w-5 h-5 mr-2 animate-pulse" />}
+                                    {isProcessing ? 'Generating...' : (isRenderingGif ? 'Rendering...' : 'Generate Art')}
                                 </button>
                             </>
                         )}
@@ -314,33 +332,43 @@ export default function ImageFragmenter() {
                         <div className="text-center text-base text-neutral-800 min-h-5 m-4">{status}</div>
                         
                         {/* GIF PROGRESS BAR */}
-                        {isDownloading === 'gif' && (
-                            <div class="progress-indicator segmented mt-4 h-2.5 my-2">
+                        {isRenderingGif && (
+                             <div className="progress-indicator segmented mt-4 h-2.5 my-2">
                                 <span class="progress-indicator-bar" style={{width: `${gifProgress}%`}} />
+                            </div>
+                        )}
+
+                        {gifPreviewUrl && !isRenderingGif && (
+                             <div className="w-full flex flex-col justify-center items-center space-y-4">
+                                <p className="text-neutral-800 text-sm">Preview:</p>
+                                <img src={gifPreviewUrl} alt="GIF Preview" className="w-[80%] h-auto rounded-sm border-2 border-black" />
+                                <div className="field-row-stacked w-[80%]">
+                                    <label htmlFor="delaySlider" className="text-sm font-medium text-neutral-800">Delay: {gifDelay}ms</label>
+                                    <input id="delaySlider" type="range" min="20" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={isRenderingGif || isDownloading}/>
+                                </div>
                             </div>
                         )}
 
                         {/* VIDEO PROGRESS BAR */}
-                        {isDownloading === 'video' && videoProgress > 0 && (
+                        {isDownloading === 'video' && (
                             <div class="progress-indicator segmented mt-4 h-2.5 my-2">
-                                <span class="progress-indicator-bar" style={{width: `${gifProgress}%`}} />
+                                <span class="progress-indicator-bar" style={{width: `${videoProgress}%`}} />
                             </div>
                         )}
 
-                        {generatedFrames.length > 0 && (
+                        {lastGifBlob && (
                             <div className="field-row w-full mt-4 mb-4 flex flex-row justify-evenly items-center border-neutral-700">
-                                <button onClick={downloadZip} disabled={isDownloading} className="flex items-center justify-center text-neutral-800 text-sm">
+                                <button onClick={downloadZip} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm">
                                     <TbDownload className="w-5 h-4 mr-1" /> ZIP
                                 </button>
-                                <button onClick={downloadGif} disabled={isDownloading} className="flex items-center justify-center text-neutral-800 text-sm">
+                                <button onClick={downloadGif} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm">
                                     <TbDownload className="w-5 h-4 mr-1" /> GIF
                                 </button>
-                                <button onClick={downloadVideo} disabled={isDownloading} className="flex items-center justify-center text-neutral-800 text-sm">
+                                <button onClick={downloadVideo} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm">
                                     <TbDownload className="w-5 h-4 mr-1" /> Video
                                 </button>
                             </div>
                         )}
-
                     </div>
                     
                 </div>
