@@ -1,12 +1,13 @@
 import '98.css';
 import { useState, useRef } from 'react';
-import { TbBolt, TbDownload } from "react-icons/tb";
+import { TbBolt, TbDownload, TbTrash } from "react-icons/tb";
 import JSZip from 'jszip';
 import GIF from 'gif.js';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
 import mouse from '../assets/mouse_speed.png';
 import globe from '../assets/internet_connection_wiz-0.png';
+import trash from '../assets/recycle_bin_full-2.png';
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
@@ -65,6 +66,29 @@ export default function ImageFragmenter() {
         };
         reader.readAsDataURL(file);
     };
+
+    const resetImage = () => {
+        setOriginalImage(null);
+        setImagePreview(null);
+    }
+
+    const startOver = () => {
+        setOriginalImage(null);
+        setImagePreview('');
+        setGeneratedFrames([]);
+        setFrameCount(40);
+
+        setStatus('Select an image to start.');
+        setIsProcessing(false);
+        setIsDownloading(null);
+        setGifProgress(0);
+        setVideoProgress(0);
+
+        setGifDelay(100);
+        setGifPreviewUrl('');
+        setLastGifBlob(null);
+        setIsRenderingGif(false);
+    }
 
     const generateFrames = async () => {
         if (!originalImage) return;
@@ -241,10 +265,7 @@ export default function ImageFragmenter() {
             setStatus(`Transcoding to MP4: ${progressPercent}%`);
         });
 
-        setStatus('Writing file to memory...');
         await ffmpeg.writeFile('input.webm', new Uint8Array(await webmBlob.arrayBuffer()));
-        
-        setStatus('Transcoding to MP4...');
         await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', 'output.mp4']);
         
         setStatus('Reading result...');
@@ -268,7 +289,7 @@ export default function ImageFragmenter() {
 
     return (
         <div className="w-full min-h-screen flex flex-col items-center justify-center">
-            <main className="w-full bg-neutral-400 text-neutral-200 flex flex-col flex-grow items-center justify-center p-4">
+            <main className="w-full bg-neutral-400 flex flex-col flex-grow items-center justify-center p-4">
                 <div className="window w-full max-w-md p-6 md:p-8 space-y-6">
 
                     <div className="title-bar">
@@ -280,9 +301,7 @@ export default function ImageFragmenter() {
                         </div>
                     </div>
 
-                    <div className="window-body">
-                        <p className="text-center text-lg text-neutral-800 mb-2">glitch your pics!!</p>
-                    
+                    <div className="window-body">                    
                         <input
                             type="file"
                             accept="image/*"
@@ -290,12 +309,6 @@ export default function ImageFragmenter() {
                             onChange={handleFileSelect}
                             className="hidden"
                         />
-
-                        {imagePreview && !gifPreviewUrl && (
-                             <div className="w-full flex flex-col justify-center items-center">
-                                <img src={imagePreview} alt="Preview" className="w-[50%] h-auto rounded-sm border-2 border-black" />
-                            </div>
-                        )}
 
                         {!imagePreview && (
                             <div className="field-row flex flex-col justify-center m-4">
@@ -306,7 +319,16 @@ export default function ImageFragmenter() {
                             </div>
                         )}
 
-                        {originalImage && (
+                        {imagePreview && !gifPreviewUrl && (
+                             <div className="w-full flex flex-col justify-center items-center">
+                                <img src={imagePreview} alt="Preview" className="w-[50%] h-auto rounded-sm border-2 border-black" />
+                                <button onClick={resetImage} disabled={allBusy} className="flex items-center justify-center mt-4 text-neutral-800 text-sm">
+                                    <TbTrash className="w-5 h-4 mr-1" /> Delete
+                                </button>
+                            </div>
+                        )}
+
+                        {originalImage && !gifPreviewUrl && (
                             <>
                                 <div className="field-row mt-4">
                                     <label htmlFor="frameCount" className="text-sm font-medium text-neutral-800">Frames</label>
@@ -317,15 +339,6 @@ export default function ImageFragmenter() {
                                     {isProcessing ? 'Generating...' : (isRenderingGif ? 'Rendering...' : 'Generate Art')}
                                 </button>
                             </>
-                        )}
-
-                        <div className="text-center text-base text-neutral-800 min-h-5 m-4">{status}</div>
-                        
-                        {/* GIF PROGRESS BAR */}
-                        {isRenderingGif && (
-                             <div className="progress-indicator segmented mt-4 h-2.5 my-2">
-                                <span class="progress-indicator-bar" style={{width: `${gifProgress}%`}} />
-                            </div>
                         )}
 
                         {gifPreviewUrl && !isRenderingGif && (
@@ -342,15 +355,24 @@ export default function ImageFragmenter() {
                             </div>
                         )}
 
+                        <div className="text-center text-base text-neutral-800 min-h-5 m-4">{status}</div>
+                        
+                        {/* GIF PROGRESS BAR */}
+                        {isRenderingGif && (
+                             <div className="progress-indicator segmented mt-4 h-2.5 my-2">
+                                <span className="progress-indicator-bar" style={{width: `${gifProgress}%`}} />
+                            </div>
+                        )}
+
                         {/* VIDEO PROGRESS BAR */}
                         {isDownloading === 'video' && (
-                            <div class="progress-indicator segmented mt-4 h-2.5 my-2">
-                                <span class="progress-indicator-bar" style={{width: `${videoProgress}%`}} />
+                            <div className="progress-indicator segmented mt-4 h-2.5 my-2">
+                                <span className="progress-indicator-bar" style={{width: `${videoProgress}%`}} />
                             </div>
                         )}
 
                         {lastGifBlob && (
-                            <div className="field-row w-full mt-4 mb-4 flex flex-row justify-evenly items-center border-neutral-700">
+                            <div className="field-row w-full mt-4 mb-4 flex flex-row justify-evenly items-center">
                                 <button onClick={downloadZip} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm">
                                     <TbDownload className="w-5 h-4 mr-1" /> ZIP
                                 </button>
@@ -362,14 +384,21 @@ export default function ImageFragmenter() {
                                 </button>
                             </div>
                         )}
+
                     </div>
-                    
                 </div>
+                {lastGifBlob && (
+                    <div className="w-full mt-5 flex flex-row justify-center items-center">
+                        <button onClick={startOver} className="flex items-center justify-center text-neutral-800 text-sm p-1">
+                            <img src={trash} alt="recycle bin" className="w-5 h-6 mr-1" /> Start Over
+                        </button>
+                    </div>
+                )}
             </main>
             <footer className="w-full font-sans text-base bg-neutral-300 text-neutral-600 flex flex-col items-center justify-center p-4">
                 <p className="mb-1">Created by <a href="https://graceis.online/" target="_blank" rel="noreferrer" className="underline">Grace Manning</a>.</p>
                 <p className="mb-1">Enjoyed it? Send a <a href="https://ko-fi.com/graceisonline" target="_blank" rel="noreferrer" className="underline">thank you</a> :-)</p>
-                <img src={globe} alt="cursor icon with speed lines" className="w-5 h-5" />
+                <img src={globe} alt="earth globe with mouse pointer" className="w-5 h-5" />
             </footer>
         </div>
     );
