@@ -8,6 +8,7 @@ import { toBlobURL } from '@ffmpeg/util';
 import mouse from '../assets/mouse_speed.png';
 import globe from '../assets/internet_connection_wiz-0.png';
 import trash from '../assets/recycle_bin_full-2.png';
+import construction from '../assets/construction.gif';
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
@@ -359,8 +360,11 @@ export default function ImageFragmenter() {
                         
                         {/* GIF PROGRESS BAR */}
                         {isRenderingGif && (
-                             <div className="progress-indicator segmented mt-4 h-2.5 my-2">
-                                <span className="progress-indicator-bar" style={{width: `${gifProgress}%`}} />
+                            <div className="w-full mt-4 mb-4 flex flex-col justify-evenly items-center">
+                                <img src={construction} alt="construction man" className="w-20 h-auto mr-1" />
+                                <div className="progress-indicator segmented w-full mt-4 h-2.5 my-2">
+                                    <span className="progress-indicator-bar" style={{width: `${gifProgress}%`}} />
+                                </div>
                             </div>
                         )}
 
