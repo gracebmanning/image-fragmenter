@@ -84,18 +84,19 @@ export default function ImageFragmenter() {
         frames.push(await getCanvasBlob(canvas));
 
         for (let i = 0; i < frameCount; i++) {
-            const left = Math.floor(Math.random() * canvas.width);
-            const top = Math.floor(Math.random() * canvas.height);
-            const cropWidth = Math.floor(Math.random() * (canvas.width - left));
-            const cropHeight = Math.floor(Math.random() * (canvas.height - top));
+            const cropWidth = Math.floor(Math.random() * canvas.width) + 1;
+            const cropHeight = Math.floor(Math.random() * canvas.height) + 1;
+
+            const left = Math.floor(Math.random() * (canvas.width - cropWidth + 1));
+            const top = Math.floor(Math.random() * canvas.height - cropHeight + 1);
 
             const cropCanvas = document.createElement('canvas');
             cropCanvas.width = cropWidth;
             cropCanvas.height = cropHeight;
             cropCanvas.getContext('2d').drawImage(originalImage, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
             
-            const pasteX = Math.floor(Math.random() * (canvas.width - cropWidth));
-            const pasteY = Math.floor(Math.random() * (canvas.height - cropHeight));
+            const pasteX = Math.floor(Math.random() * (canvas.width - cropWidth + 1));
+            const pasteY = Math.floor(Math.random() * (canvas.height - cropHeight + 1));
             ctx.drawImage(cropCanvas, pasteX, pasteY);
 
             frames.push(await getCanvasBlob(canvas));
