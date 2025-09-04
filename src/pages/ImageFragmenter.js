@@ -1,5 +1,5 @@
 import '98.css';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { TbBolt, TbDownload } from "react-icons/tb";
 import JSZip from 'jszip';
 import GIF from 'gif.js';
@@ -24,23 +24,12 @@ export default function ImageFragmenter() {
     // Refs
     const fileInputRef = useRef(null);
     const ffmpegRef = useRef(null);
-    const isInitialRender = useRef(true);
 
     // Interactive GIF State
     const [gifDelay, setGifDelay] = useState(100);
     const [gifPreviewUrl, setGifPreviewUrl] = useState('');
     const [lastGifBlob, setLastGifBlob] = useState(null);
     const [isRenderingGif, setIsRenderingGif] = useState(false);
-    
-    // re-render gif on delay change
-    useEffect(() => {
-        if (isInitialRender.current || generatedFrames.length === 0) {
-            isInitialRender.current = false;
-            return;
-        }
-        renderGifPreview(gifDelay);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [gifDelay]);
 
     const loadFFmpeg = async () => {
         if (ffmpegRef.current && ffmpegRef.current.loaded) return;
@@ -346,6 +335,9 @@ export default function ImageFragmenter() {
                                     <label htmlFor="delaySlider" className="text-sm font-medium text-neutral-800">Delay: {gifDelay}ms</label>
                                     <input id="delaySlider" type="range" min="20" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={isRenderingGif || isDownloading}/>
                                 </div>
+                                <button onClick={() => renderGifPreview(gifDelay)} disabled={allBusy} className="p-2 text-sm disabled:cursor-not-allowed">
+                                    Update Preview
+                                </button>
                             </div>
                         )}
 
