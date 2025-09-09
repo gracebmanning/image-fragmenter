@@ -3,8 +3,7 @@ import { useState, useRef } from 'react';
 import { TbBolt, TbDownload, TbTrash } from "react-icons/tb";
 import JSZip from 'jszip';
 import GIF from 'gif.js';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { toBlobURL } from '@ffmpeg/util';
+import { Output, CanvasSource, BufferTarget, Mp4OutputFormat } from 'mediabunny';
 import mouse from '../assets/mouse_speed.png';
 import globe from '../assets/internet_connection_wiz-0.png';
 import trash from '../assets/recycle_bin_full-2.png';
@@ -25,28 +24,12 @@ export default function ImageFragmenter() {
     
     // Refs
     const fileInputRef = useRef(null);
-    const ffmpegRef = useRef(null);
 
     // Interactive GIF State
     const [gifDelay, setGifDelay] = useState(100);
     const [gifPreviewUrl, setGifPreviewUrl] = useState('');
     const [lastGifBlob, setLastGifBlob] = useState(null);
     const [isRenderingGif, setIsRenderingGif] = useState(false);
-
-    const loadFFmpeg = async () => {
-        if (ffmpegRef.current && ffmpegRef.current.loaded) return;
-        const ffmpeg = new FFmpeg();
-        ffmpegRef.current = ffmpeg;
-        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
-        try {
-            await ffmpeg.load({
-                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            });
-        } catch (error) {
-            console.error("FFmpeg loading failed:", error);
-        }
-    };
 
     const handleFileSelect = (event) => {
         const file = event.target.files[0];
@@ -61,7 +44,6 @@ export default function ImageFragmenter() {
                 setGeneratedFrames([]);
                 setGifPreviewUrl('');
                 setLastGifBlob(null);
-                loadFFmpeg();
             };
             img.src = e.target.result;
         };
@@ -101,7 +83,7 @@ export default function ImageFragmenter() {
         const frames = [];
         
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         canvas.width = originalImage.width;
         canvas.height = originalImage.height;
         ctx.drawImage(originalImage, 0, 0);
@@ -118,7 +100,7 @@ export default function ImageFragmenter() {
             const cropCanvas = document.createElement('canvas');
             cropCanvas.width = cropWidth;
             cropCanvas.height = cropHeight;
-            cropCanvas.getContext('2d').drawImage(originalImage, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+            cropCanvas.getContext('2d', { willReadFrequently: true }).drawImage(originalImage, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
             
             const pasteX = Math.floor(Math.random() * (canvas.width - cropWidth + 1));
             const pasteY = Math.floor(Math.random() * (canvas.height - cropHeight + 1));
@@ -216,75 +198,121 @@ export default function ImageFragmenter() {
     };
 
     const downloadVideo = async () => {
-        if (!ffmpegRef.current || !ffmpegRef.current.loaded) {
-            setStatus('FFmpeg is not ready. Please wait a moment.');
-            await loadFFmpeg();
-            return;
-        }
-        if (typeof MediaRecorder === 'undefined') {
-            setStatus('Video recording not supported in this browser.');
+        if (!('VideoEncoder' in window)) {
+            setStatus('Your browser does not support the VideoEncoder API.');
             return;
         }
 
         setIsDownloading('video');
         setVideoProgress(0);
+        setStatus('Preparing video encode...');
 
-        // Record frames to a WebM Blob
-        setStatus('Recording frames...');
         const canvas = document.createElement('canvas');
         canvas.width = originalImage.width;
         canvas.height = originalImage.height;
         const ctx = canvas.getContext('2d');
-        const stream = canvas.captureStream();
-        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-        
-        const chunks = [];
-        recorder.ondataavailable = (e) => chunks.push(e.data);
-        
-        const recordingPromise = new Promise(resolve => {
-            recorder.onstop = () => {
-                const webmBlob = new Blob(chunks, { type: 'video/webm' });
-                resolve(webmBlob);
-            };
+
+        const output = new Output({
+            format: new Mp4OutputFormat({
+                video: {
+                    codec: 'avc',
+                    width: originalImage.width,
+                    height: originalImage.height,
+                },
+            }),
+            target: new BufferTarget(),
         });
 
-        recorder.start();
-        for (let i = 0; i < generatedFrames.length; i++) {
-            const bmp = await createImageBitmap(generatedFrames[i]);
-            ctx.drawImage(bmp, 0, 0);
-            setStatus(`Recording frame ${i + 1} of ${generatedFrames.length}`);
-            await new Promise(r => setTimeout(r, gifDelay));
+        const source = new CanvasSource(canvas, {
+            // Frame rate: 10 frames per second (1000ms / 100ms delay)
+            frameRate: 1000 / gifDelay, 
+        });
+
+        output.addSource(source);
+
+        await output.start();
+        setStatus('Encoding video...');
+
+        const imageElements = await Promise.all(generatedFrames.map(blob => {
+            return new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.src = URL.createObjectURL(blob);
+            });
+        }));
+
+        // Draw each image and tell MediaBunny to capture the frame
+        for (let i = 0; i < imageElements.length; i++) {
+            const img = imageElements[i];
+            ctx.drawImage(img, 0, 0);
+
+            await source.nextFrame();
+
+            const progress = Math.round(((i + 1) / imageElements.length) * 100);
+            setVideoProgress(progress);
+            setStatus(`Encoding frame ${i + 1} of ${imageElements.length}`);
+
+            URL.revokeObjectURL(img.src);
         }
-        recorder.stop();
-        const webmBlob = await recordingPromise;
 
-        // Transcode WebM to MP4 using FFmpeg
-        const ffmpeg = ffmpegRef.current;
-        ffmpeg.on('progress', ({ progress }) => {
-            const progressPercent = Math.min(100, Math.round(progress * 100));
-            setVideoProgress(progressPercent);
-            setStatus(`Transcoding to MP4: ${progressPercent}%`);
-        });
+        await output.stop();
 
-        await ffmpeg.writeFile('input.webm', new Uint8Array(await webmBlob.arrayBuffer()));
-        await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', 'output.mp4']);
-        
-        setStatus('Reading result...');
-        const data = await ffmpeg.readFile('output.mp4');
-        
-        const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
-        triggerDownload(mp4Blob, 'animation.mp4');
-        
-        setStatus('MP4 download started!');
-        await ffmpeg.terminate();
-        ffmpegRef.current = null;
-        
-        setTimeout(() => {
-            setIsDownloading(null);
-            setVideoProgress(0);
-            setStatus(`Adjust speed with the slider, then download!`);
-        }, 2000);
+        const { buffer } = output.target;
+        const blob = new Blob([buffer], { type: 'video/mp4' });
+
+        triggerDownload(blob, 'animation.mp4');
+        setStatus('MP4 video download started!');
+        setIsDownloading(null);
     };
+
+    // const downloadVideo = async () => {
+    //     if(!('VideoEncoder' in window)){
+    //         setStatus('Your browser does not support the VideoEncoder API.');
+    //         return;
+    //     }
+
+    //     setIsDownloading('video');
+    //     setVideoProgress(0);
+
+    //     const imageElements = await Promise.all(generatedFrames.map(blob => {
+    //         return new Promise(resolve => {
+    //             const img = new Image();
+    //             img.onload = () => resolve(img);
+    //             img.src = URL.createObjectURL(blob);
+    //         });
+    //     }));
+
+    //     const input = new Input({
+    //         formats: ALL_FORMATS,
+    //         source: new BlobSource(imageElements),
+    //     });
+
+    //     const output = new Output({
+    //         format: new Mp4OutputFormat(),
+    //         target: new BufferTarget(),
+    //     });
+
+    //     const conversion = await Conversion.init({ 
+    //         input, 
+    //         output,
+    //         video: {
+    //             width: originalImage.width,
+    //             height: originalImage.height
+    //         }
+    //     });
+    //     conversion.onProgress = (progress) => {
+    //         setVideoProgress(progress);
+    //     };
+
+    //     await conversion.execute();
+        
+    //     const { buffer } = muxer.target;
+    //     const blob = new Blob([buffer], { type: 'video/mp4' });
+
+    //     triggerDownload(blob, 'animation.mp4');
+    //     setStatus('MP4 video download started!');
+    //     setIsDownloading(false);
+    // };
 
     const allBusy = isProcessing || isDownloading || isRenderingGif;
 
