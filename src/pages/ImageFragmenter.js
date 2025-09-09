@@ -3,7 +3,8 @@ import { useState, useRef } from 'react';
 import { TbBolt, TbDownload, TbTrash } from "react-icons/tb";
 import JSZip from 'jszip';
 import GIF from 'gif.js';
-import { Output, CanvasSource, BufferTarget, Mp4OutputFormat } from 'mediabunny';
+import * as Mp4Muxer from 'mp4-muxer';
+
 import mouse from '../assets/mouse_speed.png';
 import globe from '../assets/internet_connection_wiz-0.png';
 import trash from '../assets/recycle_bin_full-2.png';
@@ -33,7 +34,11 @@ export default function ImageFragmenter() {
 
     const handleFileSelect = (event) => {
         const file = event.target.files[0];
-        if (!file || !file.type.startsWith('image/')) return;
+        if(!file) return;
+        if (!['image/png', 'image/jpeg'].includes(file.type)){
+            setStatus('Unsupported file type.');
+            return;
+        } 
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
@@ -198,121 +203,71 @@ export default function ImageFragmenter() {
     };
 
     const downloadVideo = async () => {
-        if (!('VideoEncoder' in window)) {
-            setStatus('Your browser does not support the VideoEncoder API.');
-            return;
+        if ('VideoEncoder' in window) {
+            console.log('The WebCodecs API (VideoEncoder) is supported!');
+        } else {
+            console.log('The WebCodecs API (VideoEncoder) is NOT supported in this context.');
         }
+        if (!generatedFrames.length || !originalImage) return;
 
         setIsDownloading('video');
+        setStatus('Initializing video encoder...');
         setVideoProgress(0);
-        setStatus('Preparing video encode...');
 
-        const canvas = document.createElement('canvas');
-        canvas.width = originalImage.width;
-        canvas.height = originalImage.height;
-        const ctx = canvas.getContext('2d');
+        const frameRate = Math.round(1000 / gifDelay);
+        const { width, height } = originalImage;
 
-        const output = new Output({
-            format: new Mp4OutputFormat({
+        try {
+            let muxer = new Mp4Muxer.Muxer({
+                target: new Mp4Muxer.ArrayBufferTarget(),
+                fastStart: 'in-memory',
                 video: {
                     codec: 'avc',
-                    width: originalImage.width,
-                    height: originalImage.height,
+                    width: width,
+                    height: height,
                 },
-            }),
-            target: new BufferTarget(),
-        });
-
-        const source = new CanvasSource(canvas, {
-            // Frame rate: 10 frames per second (1000ms / 100ms delay)
-            frameRate: 1000 / gifDelay, 
-        });
-
-        output.addSource(source);
-
-        await output.start();
-        setStatus('Encoding video...');
-
-        const imageElements = await Promise.all(generatedFrames.map(blob => {
-            return new Promise(resolve => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.src = URL.createObjectURL(blob);
             });
-        }));
 
-        // Draw each image and tell MediaBunny to capture the frame
-        for (let i = 0; i < imageElements.length; i++) {
-            const img = imageElements[i];
-            ctx.drawImage(img, 0, 0);
+            let encoder = new VideoEncoder({
+                output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+                error: (e) => console.error('VideoEncoder error:', e),
+            });
 
-            await source.nextFrame();
+            encoder.configure({
+                codec: 'avc1.42001E', // Baseline H.264 codec
+                width: width,
+                height: height,
+                framerate: frameRate,
+            });
 
-            const progress = Math.round(((i + 1) / imageElements.length) * 100);
-            setVideoProgress(progress);
-            setStatus(`Encoding frame ${i + 1} of ${imageElements.length}`);
+            for (const [index, blob] of generatedFrames.entries()) {
+                setStatus(`Encoding frame ${index + 1} of ${generatedFrames.length}...`);
+                const bitmap = await createImageBitmap(blob);
+                const timestamp = index * (1_000_000 / frameRate);
+                const frame = new VideoFrame(bitmap, { timestamp: timestamp });
+                
+                encoder.encode(frame);
+                frame.close();
 
-            URL.revokeObjectURL(img.src);
+                setVideoProgress(Math.round(((index + 1) / generatedFrames.length) * 100));
+            }
+
+            setStatus('Finalizing video file...');
+            await encoder.flush();
+            let buffer = muxer.finalize();
+
+            const videoBlob = new Blob([buffer], { type: 'video/mp4' });
+            triggerDownload(videoBlob, 'animation.mp4');
+
+            setStatus('Video download started!');
+        } catch (error) {
+            console.error('Error creating video:', error);
+            setStatus('Failed to create video. See console for details.');
+        } finally {
+            setIsDownloading(null);
+            setVideoProgress(0);
         }
-
-        await output.stop();
-
-        const { buffer } = output.target;
-        const blob = new Blob([buffer], { type: 'video/mp4' });
-
-        triggerDownload(blob, 'animation.mp4');
-        setStatus('MP4 video download started!');
-        setIsDownloading(null);
     };
-
-    // const downloadVideo = async () => {
-    //     if(!('VideoEncoder' in window)){
-    //         setStatus('Your browser does not support the VideoEncoder API.');
-    //         return;
-    //     }
-
-    //     setIsDownloading('video');
-    //     setVideoProgress(0);
-
-    //     const imageElements = await Promise.all(generatedFrames.map(blob => {
-    //         return new Promise(resolve => {
-    //             const img = new Image();
-    //             img.onload = () => resolve(img);
-    //             img.src = URL.createObjectURL(blob);
-    //         });
-    //     }));
-
-    //     const input = new Input({
-    //         formats: ALL_FORMATS,
-    //         source: new BlobSource(imageElements),
-    //     });
-
-    //     const output = new Output({
-    //         format: new Mp4OutputFormat(),
-    //         target: new BufferTarget(),
-    //     });
-
-    //     const conversion = await Conversion.init({ 
-    //         input, 
-    //         output,
-    //         video: {
-    //             width: originalImage.width,
-    //             height: originalImage.height
-    //         }
-    //     });
-    //     conversion.onProgress = (progress) => {
-    //         setVideoProgress(progress);
-    //     };
-
-    //     await conversion.execute();
-        
-    //     const { buffer } = muxer.target;
-    //     const blob = new Blob([buffer], { type: 'video/mp4' });
-
-    //     triggerDownload(blob, 'animation.mp4');
-    //     setStatus('MP4 video download started!');
-    //     setIsDownloading(false);
-    // };
 
     const allBusy = isProcessing || isDownloading || isRenderingGif;
 
