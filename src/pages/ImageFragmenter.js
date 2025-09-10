@@ -3,7 +3,7 @@ import { useState, useRef } from 'react';
 import { TbBolt, TbDownload, TbTrash } from "react-icons/tb";
 import JSZip from 'jszip';
 import GIF from 'gif.js';
-//import * as Mp4Muxer from 'mp4-muxer';
+import * as Mp4Muxer from 'mp4-muxer';
 
 import mouse from '../assets/mouse_speed.png';
 import globe from '../assets/internet_connection_wiz-0.png';
@@ -202,72 +202,72 @@ export default function ImageFragmenter() {
         triggerDownload(lastGifBlob, 'animation.gif');
     };
 
-    // const downloadVideo = async () => {
-    //     if ('VideoEncoder' in window) {
-    //         console.log('The WebCodecs API (VideoEncoder) is supported!');
-    //     } else {
-    //         console.log('The WebCodecs API (VideoEncoder) is NOT supported in this context.');
-    //     }
-    //     if (!generatedFrames.length || !originalImage) return;
+    const downloadVideo = async () => {
+        if ('VideoEncoder' in window) {
+            console.log('The WebCodecs API (VideoEncoder) is supported!');
+        } else {
+            console.log('The WebCodecs API (VideoEncoder) is NOT supported in this context.');
+        }
+        if (!generatedFrames.length || !originalImage) return;
 
-    //     setIsDownloading('video');
-    //     setStatus('Initializing video encoder...');
-    //     setVideoProgress(0);
+        setIsDownloading('video');
+        setStatus('Initializing video encoder...');
+        setVideoProgress(0);
 
-    //     const frameRate = Math.round(1000 / gifDelay);
-    //     const { width, height } = originalImage;
+        const frameRate = Math.round(1000 / gifDelay);
+        const { width, height } = originalImage;
 
-    //     try {
-    //         let muxer = new Mp4Muxer.Muxer({
-    //             target: new Mp4Muxer.ArrayBufferTarget(),
-    //             fastStart: 'in-memory',
-    //             video: {
-    //                 codec: 'avc',
-    //                 width: width,
-    //                 height: height,
-    //             },
-    //         });
+        try {
+            let muxer = new Mp4Muxer.Muxer({
+                target: new Mp4Muxer.ArrayBufferTarget(),
+                fastStart: 'in-memory',
+                video: {
+                    codec: 'avc',
+                    width: width,
+                    height: height,
+                },
+            });
 
-    //         let encoder = new VideoEncoder({
-    //             output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-    //             error: (e) => console.error('VideoEncoder error:', e),
-    //         });
+            let encoder = new VideoEncoder({
+                output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+                error: (e) => console.error('VideoEncoder error:', e),
+            });
 
-    //         encoder.configure({
-    //             codec: 'avc1.42001E', // Baseline H.264 codec
-    //             width: width,
-    //             height: height,
-    //             framerate: frameRate,
-    //         });
+            encoder.configure({
+                codec: 'avc1.42001E', // Baseline H.264 codec
+                width: width,
+                height: height,
+                framerate: frameRate,
+            });
 
-    //         for (const [index, blob] of generatedFrames.entries()) {
-    //             setStatus(`Encoding frame ${index + 1} of ${generatedFrames.length}...`);
-    //             const bitmap = await createImageBitmap(blob);
-    //             const timestamp = index * (1_000_000 / frameRate);
-    //             const frame = new VideoFrame(bitmap, { timestamp: timestamp });
+            for (const [index, blob] of generatedFrames.entries()) {
+                setStatus(`Encoding frame ${index + 1} of ${generatedFrames.length}...`);
+                const bitmap = await createImageBitmap(blob);
+                const timestamp = index * (1_000_000 / frameRate);
+                const frame = new VideoFrame(bitmap, { timestamp: timestamp });
                 
-    //             encoder.encode(frame);
-    //             frame.close();
+                encoder.encode(frame);
+                frame.close();
 
-    //             setVideoProgress(Math.round(((index + 1) / generatedFrames.length) * 100));
-    //         }
+                setVideoProgress(Math.round(((index + 1) / generatedFrames.length) * 100));
+            }
 
-    //         setStatus('Finalizing video file...');
-    //         await encoder.flush();
-    //         let buffer = muxer.finalize();
+            setStatus('Finalizing video file...');
+            await encoder.flush();
+            let buffer = muxer.finalize();
 
-    //         const videoBlob = new Blob([buffer], { type: 'video/mp4' });
-    //         triggerDownload(videoBlob, 'animation.mp4');
+            const videoBlob = new Blob([buffer], { type: 'video/mp4' });
+            triggerDownload(videoBlob, 'animation.mp4');
 
-    //         setStatus('Video download started!');
-    //     } catch (error) {
-    //         console.error('Error creating video:', error);
-    //         setStatus('Failed to create video. See console for details.');
-    //     } finally {
-    //         setIsDownloading(null);
-    //         setVideoProgress(0);
-    //     }
-    // };
+            setStatus('Video download started!');
+        } catch (error) {
+            console.error('Error creating video:', error);
+            setStatus('Failed to create video. See console for details.');
+        } finally {
+            setIsDownloading(null);
+            setVideoProgress(0);
+        }
+    };
 
     const allBusy = isProcessing || isDownloading || isRenderingGif;
 
@@ -366,9 +366,9 @@ export default function ImageFragmenter() {
                                 <button onClick={downloadGif} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm">
                                     <TbDownload className="w-5 h-4 mr-1" /> GIF
                                 </button>
-                                {/* <button onClick={downloadVideo} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm">
+                                <button onClick={downloadVideo} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm">
                                     <TbDownload className="w-5 h-4 mr-1" /> Video
-                                </button> */}
+                                </button>
                             </div>
                         )}
 
