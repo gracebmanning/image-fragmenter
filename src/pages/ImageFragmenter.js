@@ -15,6 +15,7 @@ export default function ImageFragmenter() {
     const [imagePreview, setImagePreview] = useState('');
     const [generatedFrames, setGeneratedFrames] = useState([]);
     const [frameCount, setFrameCount] = useState(40);
+    const [outputDimensions, setOutputDimensions] = useState(null);
 
     // Status and Loading State
     const [status, setStatus] = useState('Select an image to start.');
@@ -65,6 +66,7 @@ export default function ImageFragmenter() {
         setImagePreview('');
         setGeneratedFrames([]);
         setFrameCount(40);
+        setOutputDimensions(null);
 
         setStatus('Select an image to start.');
         setIsProcessing(false);
@@ -84,13 +86,37 @@ export default function ImageFragmenter() {
         setIsProcessing(true);
         setGifPreviewUrl('');
         setLastGifBlob(null);
-        setStatus('Generating frames...');
-        const frames = [];
+        setStatus('Preparing image...');
+
+        const maxWidth = 1920;
+        const maxHeight = 1080;
+        let imageToProcess = originalImage;
+        let finalWidth = originalImage.width;
+        let finalHeight = originalImage.height;
+
+        if(originalImage.width > maxWidth || originalImage.height > maxHeight){
+            setStatus('Image is large, scaling for compatibility...');
+            const scaleFactor = Math.min(maxWidth / originalImage.width, maxHeight / originalImage.height);
+            finalWidth = Math.floor(originalImage.width * scaleFactor);
+            finalHeight = Math.floor(originalImage.height * scaleFactor);
+
+            const scalingCanvas = document.createElement('canvas');
+            scalingCanvas.width = finalWidth;
+            scalingCanvas.height = finalHeight;
+            const scalingCtx = scalingCanvas.getContext('2d');
+            scalingCtx.drawImage(originalImage, 0, 0, finalWidth, finalHeight);
+            imageToProcess = scalingCanvas;
+        }
+
+        const newOutputDimensions = { width: finalWidth, height: finalHeight };
+        setOutputDimensions(newOutputDimensions);
+        console.log(newOutputDimensions);
         
+        const frames = [];
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        canvas.width = originalImage.width;
-        canvas.height = originalImage.height;
+        canvas.width = finalWidth;
+        canvas.height = finalHeight;
         ctx.drawImage(originalImage, 0, 0);
 
         frames.push(await getCanvasBlob(canvas));
@@ -105,7 +131,7 @@ export default function ImageFragmenter() {
             const cropCanvas = document.createElement('canvas');
             cropCanvas.width = cropWidth;
             cropCanvas.height = cropHeight;
-            cropCanvas.getContext('2d', { willReadFrequently: true }).drawImage(originalImage, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+            cropCanvas.getContext('2d', { willReadFrequently: true }).drawImage(imageToProcess, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
             
             const pasteX = Math.floor(Math.random() * (canvas.width - cropWidth + 1));
             const pasteY = Math.floor(Math.random() * (canvas.height - cropHeight + 1));
@@ -117,20 +143,22 @@ export default function ImageFragmenter() {
         
         setGeneratedFrames(frames);
         setIsProcessing(false);
-        renderGifPreview(gifDelay, frames);
+        renderGifPreview(gifDelay, frames, newOutputDimensions);
     };
 
-    const renderGifPreview = async (delay, framesToRender = generatedFrames) => {
+    const renderGifPreview = async (delay, framesToRender = generatedFrames, dimensions = outputDimensions) => {
         if (framesToRender.length === 0) return;
         setIsRenderingGif(true);
         setGifProgress(0);
         setStatus('Rendering GIF preview...');
 
+        const { width, height } = dimensions || outputDimensions || { width: originalImage.width, height: originalImage.height };
+
         const gif = new GIF({
             workers: 4,
             quality: 10,
-            width: originalImage.width,
-            height: originalImage.height,
+            width: width,
+            height: height,
             workerScript: '/js/gif.worker.js',
         });
 
@@ -215,7 +243,7 @@ export default function ImageFragmenter() {
         setVideoProgress(0);
 
         const frameRate = Math.round(1000 / gifDelay);
-        const { width, height } = originalImage;
+        const { width, height } = outputDimensions || { width: originalImage.width, height: originalImage.height };
 
         try {
             let muxer = new Mp4Muxer.Muxer({
@@ -234,10 +262,11 @@ export default function ImageFragmenter() {
             });
 
             encoder.configure({
-                codec: 'avc1.42001E', // Baseline H.264 codec
+                codec: 'avc1.640028', // Level 4.0 H.264 'High' profile codec
                 width: width,
                 height: height,
                 framerate: frameRate,
+                bitrate: 5_000_000
             });
 
             for (const [index, blob] of generatedFrames.entries()) {
