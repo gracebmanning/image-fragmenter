@@ -9,6 +9,8 @@ import mouse from '../assets/mouse_speed.png';
 import globe from '../assets/internet_connection_wiz-0.png';
 import trash from '../assets/recycle_bin_full-2.png';
 import construction from '../assets/construction.gif';
+import help from '../assets/help_sheet-0.png';
+import HelpDialog from './HelpDialog';
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
@@ -16,6 +18,7 @@ export default function ImageFragmenter() {
     const [generatedFrames, setGeneratedFrames] = useState([]);
     const [frameCount, setFrameCount] = useState(40);
     const [outputDimensions, setOutputDimensions] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Status and Loading State
     const [status, setStatus] = useState('Select an image to start.');
@@ -32,6 +35,9 @@ export default function ImageFragmenter() {
     const [gifPreviewUrl, setGifPreviewUrl] = useState('');
     const [lastGifBlob, setLastGifBlob] = useState(null);
     const [isRenderingGif, setIsRenderingGif] = useState(false);
+
+    const openModal = () => setIsModalOpen(true);
+    const closeModal = () => setIsModalOpen(false);
 
     const handleFileSelect = (event) => {
         const file = event.target.files[0];
@@ -306,18 +312,16 @@ export default function ImageFragmenter() {
     return (
         <div className="w-full min-h-screen flex flex-col items-center justify-center">
             <main className="w-full bg-neutral-400 flex flex-col flex-grow items-center justify-center p-4">
+                <button onClick={openModal} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm mb-4">
+                    <img src={help} alt="paper with question mark" className="h-5 m-1" />
+                    <span className="m-1 text-neutral-800 text-sm">Help</span>
+                </button>
+                <HelpDialog isOpen={isModalOpen} onClose={closeModal} />
                 <div className="window w-full max-w-md p-6 md:p-8 space-y-6">
-
                     <div className="title-bar">
                         <div className="title-bar-text text-xl font-bold text-white">Image Fragmenter</div>
-                        <div className="title-bar-controls">
-                            <button aria-label="Minimize" />
-                            <button aria-label="Maximize" />
-                            <button aria-label="Close" />
-                        </div>
                     </div>
-
-                    <div className="window-body">                    
+                    <div className="window-body">                   
                         <input
                             type="file"
                             accept="image/*"
