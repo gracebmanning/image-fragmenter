@@ -108,16 +108,19 @@ export default function ImageFragmenter() {
             imageToProcess = scalingCanvas;
         }
 
+        // H264 only supports even sized frames
+        if (finalWidth % 2 !== 0) finalWidth--;
+        if (finalHeight % 2 !== 0) finalHeight--;
+
         const newOutputDimensions = { width: finalWidth, height: finalHeight };
         setOutputDimensions(newOutputDimensions);
-        console.log(newOutputDimensions);
-        
+
         const frames = [];
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         canvas.width = finalWidth;
         canvas.height = finalHeight;
-        ctx.drawImage(originalImage, 0, 0);
+        ctx.drawImage(imageToProcess, 0, 0);
 
         frames.push(await getCanvasBlob(canvas));
 
@@ -227,14 +230,13 @@ export default function ImageFragmenter() {
 
     const downloadGif = () => {
         setStatus('GIF download started!');
-        triggerDownload(lastGifBlob, 'animation.gif');
+        triggerDownload(lastGifBlob, `animation_${gifDelay}ms.gif`);
     };
 
     const downloadVideo = async () => {
-        if ('VideoEncoder' in window) {
-            console.log('The WebCodecs API (VideoEncoder) is supported!');
-        } else {
-            console.log('The WebCodecs API (VideoEncoder) is NOT supported in this context.');
+        if (!('VideoEncoder' in window)) {
+            setStatus('WebCodecs API not supported in this browser.');
+            return;
         }
         if (!generatedFrames.length || !originalImage) return;
 
@@ -262,7 +264,7 @@ export default function ImageFragmenter() {
             });
 
             encoder.configure({
-                codec: 'avc1.640028', // Level 4.0 H.264 'High' profile codec
+                codec: 'avc1.4D0028', // Level 4.0 H.264 'Main' profile codec
                 width: width,
                 height: height,
                 framerate: frameRate,
@@ -273,7 +275,8 @@ export default function ImageFragmenter() {
                 setStatus(`Encoding frame ${index + 1} of ${generatedFrames.length}...`);
                 const bitmap = await createImageBitmap(blob);
                 const timestamp = index * (1_000_000 / frameRate);
-                const frame = new VideoFrame(bitmap, { timestamp: timestamp });
+                const duration = 1_000_000 / frameRate;
+                const frame = new VideoFrame(bitmap, { timestamp: timestamp, duration: duration });
                 
                 encoder.encode(frame);
                 frame.close();
@@ -286,7 +289,7 @@ export default function ImageFragmenter() {
             let buffer = muxer.finalize();
 
             const videoBlob = new Blob([buffer], { type: 'video/mp4' });
-            triggerDownload(videoBlob, 'animation.mp4');
+            triggerDownload(videoBlob, `animation_${gifDelay}ms.mp4`);
 
             setStatus('Video download started!');
         } catch (error) {
@@ -360,7 +363,7 @@ export default function ImageFragmenter() {
                                 <img src={gifPreviewUrl} alt="GIF Preview" className="w-[80%] h-auto rounded-sm border-2 border-black" />
                                 <div className="field-row-stacked w-[80%]">
                                     <label htmlFor="delaySlider" className="text-sm font-medium text-neutral-800">Delay: {gifDelay}ms</label>
-                                    <input id="delaySlider" type="range" min="20" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={isRenderingGif || isDownloading}/>
+                                    <input id="delaySlider" type="range" min="10" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={isRenderingGif || isDownloading}/>
                                 </div>
                                 <button onClick={() => renderGifPreview(gifDelay)} disabled={allBusy} className="p-2 text-sm disabled:cursor-not-allowed">
                                     Update Preview
