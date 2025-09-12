@@ -1,9 +1,10 @@
 import '98.css';
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { TbBolt, TbDownload, TbTrash } from "react-icons/tb";
 import JSZip from 'jszip';
 import GIF from 'gif.js';
-import * as Mp4Muxer from 'mp4-muxer';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 import mouse from '../assets/mouse_speed.png';
 import globe from '../assets/internet_connection_wiz-0.png';
@@ -35,6 +36,29 @@ export default function ImageFragmenter() {
     const [gifPreviewUrl, setGifPreviewUrl] = useState('');
     const [lastGifBlob, setLastGifBlob] = useState(null);
     const [isRenderingGif, setIsRenderingGif] = useState(false);
+
+    // FFmpeg State
+    const [ffmpeg, setFfmpeg] = useState(null);
+    const [ffmpegRead, setFfmpegReady] = useState(false);
+
+    // FILENAMES
+    const zipFilename = `glitch-images.zip`;
+    const gifFilename = `animation_${gifDelay}ms.gif`;
+    const videoFilename = `animation_${gifDelay}ms.mp4`;
+
+    useEffect(() => {
+        const loadFfmpeg = async () => {
+            const ffmpegInstance = new FFmpeg();
+            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
+            await ffmpegInstance.load({
+                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            });
+            setFfmpeg(ffmpegInstance);
+            setFfmpegReady(true);
+        };
+        loadFfmpeg();
+    }, []);
 
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => setIsModalOpen(false);
@@ -229,79 +253,56 @@ export default function ImageFragmenter() {
             zip.file(`frame_${String(i).padStart(4, '0')}.jpg`, blob);
         });
         const zipBlob = await zip.generateAsync({ type: 'blob' });
-        triggerDownload(zipBlob, 'glitch-images.zip');
+        triggerDownload(zipBlob, zipFilename);
         setStatus('ZIP download started!');
         setIsDownloading(null);
     };
 
     const downloadGif = () => {
         setStatus('GIF download started!');
-        triggerDownload(lastGifBlob, `animation_${gifDelay}ms.gif`);
+        triggerDownload(lastGifBlob, gifFilename);
     };
 
     const downloadVideo = async () => {
-        if (!('VideoEncoder' in window)) {
-            setStatus('WebCodecs API not supported in this browser.');
+        if(!ffmpegRead || !ffmpeg){
+            setStatus('FFmpeg is not loaded yet. Please wait.');
             return;
         }
-        if (!generatedFrames.length || !originalImage) return;
+        if(!lastGifBlob){
+            setStatus('Error: GIF data not found.');
+            return;
+        }
 
         setIsDownloading('video');
-        setStatus('Initializing video encoder...');
+        setStatus('Preparing to download video...');
         setVideoProgress(0);
 
-        const frameRate = Math.round(1000 / gifDelay);
-        const { width, height } = outputDimensions || { width: originalImage.width, height: originalImage.height };
-
-        try {
-            let muxer = new Mp4Muxer.Muxer({
-                target: new Mp4Muxer.ArrayBufferTarget(),
-                fastStart: 'in-memory',
-                video: {
-                    codec: 'avc',
-                    width: width,
-                    height: height,
-                },
+        try{
+            await ffmpeg.writeFile(gifFilename, await fetchFile(lastGifBlob));
+            
+            setStatus('Converting GIF to MP4...');
+            ffmpeg.on('progress', ({ progress }) => {
+                setVideoProgress(Math.min(100, Math.round(progress * 100)));
             });
 
-            let encoder = new VideoEncoder({
-                output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-                error: (e) => console.error('VideoEncoder error:', e),
-            });
-
-            encoder.configure({
-                codec: 'avc1.4D0028', // Level 4.0 H.264 'Main' profile codec
-                width: width,
-                height: height,
-                framerate: frameRate,
-                bitrate: 5_000_000
-            });
-
-            for (const [index, blob] of generatedFrames.entries()) {
-                setStatus(`Encoding frame ${index + 1} of ${generatedFrames.length}...`);
-                const bitmap = await createImageBitmap(blob);
-                const timestamp = index * (1_000_000 / frameRate);
-                const duration = 1_000_000 / frameRate;
-                const frame = new VideoFrame(bitmap, { timestamp: timestamp, duration: duration });
-                
-                encoder.encode(frame);
-                frame.close();
-
-                setVideoProgress(Math.round(((index + 1) / generatedFrames.length) * 100));
-            }
+            await ffmpeg.exec([
+                '-i', gifFilename,              // Input file
+                '-movflags', '+faststart',      // Optimizes for web playback
+                '-c:v', 'libx264',              // Video codec
+                '-pix_fmt', 'yuv420p',          // Crucial for compatibility
+                videoFilename                   // Output file
+            ])
 
             setStatus('Finalizing video file...');
-            await encoder.flush();
-            let buffer = muxer.finalize();
-
-            const videoBlob = new Blob([buffer], { type: 'video/mp4' });
-            triggerDownload(videoBlob, `animation_${gifDelay}ms.mp4`);
-
+            const data = await ffmpeg.readFile(videoFilename);
+            const videoBlob = new Blob([data], {type: 'video/mp4'});
+            triggerDownload(videoBlob, videoFilename);
             setStatus('Video download started!');
-        } catch (error) {
-            console.error('Error creating video:', error);
-            setStatus('Failed to create video. See console for details.');
-        } finally {
+
+        } catch(error){
+            console.error('Error converting GIF to video with FFmpeg:', error);
+            setStatus('Failed to create video. See console.');
+        } finally{
             setIsDownloading(null);
             setVideoProgress(0);
         }
@@ -426,3 +427,78 @@ export default function ImageFragmenter() {
         </div>
     );
 }
+
+/*
+try {
+        const buffer = await lastGifBlob.arrayBuffer();
+        const gif = parseGIF(buffer);
+        const frames = decompressFrames(gif, true);
+
+        const { width, height } = frames[0].dims;
+
+        let muxer = new Mp4Muxer.Muxer({
+            target: new Mp4Muxer.ArrayBufferTarget(),
+            fastStart: 'in-memory',
+            video: {
+                codec: 'avc',
+                width: width,
+                height: height,
+            },
+        });
+
+        let encoder = new VideoEncoder({
+            output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+            error: (e) => console.error('VideoEncoder error:', e),
+        });
+
+        const frameRate = Math.round(1000 / gifDelay);
+        encoder.configure({
+            codec: 'avc1.4D0028', // Level 4.0 H.264 'Main' profile codec
+            width: width,
+            height: height,
+            framerate: frameRate,
+            bitrate: 5_000_000
+        });
+
+        setStatus('Encoding video frames...');
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        let timestamp = 0;
+
+        for(const [index, frame] of frames.entries()){
+            const imageData = new ImageData(frame.patch, frame.dims.width, frame.dims.height);
+            ctx.putImageData(imageData, frame.dims.left, frame.dims.top);
+            
+            const duration = (frame.delay || 100) * 1000; // convert GIF's delay to microseconds
+
+            const videoFrame = new VideoFrame(canvas, {
+                timestamp: timestamp, 
+                duration: duration
+            })
+
+            encoder.encode(videoFrame);
+            videoFrame.close();
+
+            timestamp += duration;
+            setVideoProgress(Math.round(((index + 1) / frames.length) * 100));
+        }
+        
+        setStatus('Finalizing video file...');
+        await encoder.flush();
+        let videoBuffer = muxer.finalize();
+        
+        const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
+        triggerDownload(videoBlob, `animation_${gifDelay}ms.mp4`);
+        setStatus('Video download started!');
+    } catch (error) {
+        console.error('Error creating video:', error);
+        setStatus('Failed to create video. See console for details.');
+    } finally {
+        setIsDownloading(null);
+        setVideoProgress(0);
+    }
+*/
