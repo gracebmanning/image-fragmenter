@@ -313,11 +313,6 @@ export default function ImageFragmenter() {
     return (
         <div className="w-full min-h-screen flex flex-col items-center justify-center">
             <main className="w-full bg-neutral-400 flex flex-col flex-grow items-center justify-center p-4">
-                <button onClick={openModal} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm mb-4">
-                    <img src={help} alt="paper with question mark" className="h-5 m-1" />
-                    <span className="m-1 text-neutral-800 text-sm">Help</span>
-                </button>
-                <HelpDialog isOpen={isModalOpen} onClose={closeModal} />
                 <div className="window w-full max-w-md p-6 md:p-8 space-y-6">
                     <div className="title-bar">
                         <div className="title-bar-text text-xl font-bold text-white">Image Fragmenter</div>
@@ -411,94 +406,23 @@ export default function ImageFragmenter() {
 
                     </div>
                 </div>
-                {lastGifBlob && (
-                    <div className="w-full mt-5 flex flex-row justify-center items-center">
-                        <button onClick={startOver} className="flex items-center justify-center text-neutral-800 text-sm p-1">
+                <div className="w-full max-w-md flex flex-row justify-between items-center mt-5">
+                    {lastGifBlob && (
+                        <button onClick={startOver} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm p-1 mx-2">
                             <img src={trash} alt="recycle bin" className="w-5 h-6 mr-1" /> Start Over
                         </button>
-                    </div>
-                )}
+                    )}
+                    <button onClick={openModal} disabled={allBusy} className="flex flex-row items-center justify-center text-neutral-800 text-sm p-1 mx-2">
+                        <img src={help} alt="paper with question mark" className="h-6 mr-1" /> Help
+                    </button>
+                </div>
+                <HelpDialog isOpen={isModalOpen} onClose={closeModal} />
             </main>
             <footer className="w-full font-sans text-base bg-neutral-300 text-neutral-600 flex flex-col items-center justify-center p-4">
                 <p className="mb-1">Created by <a href="https://graceis.online/" target="_blank" rel="noreferrer" className="underline">Grace Manning</a>.</p>
-                <p className="mb-1">Enjoyed it? Send a <a href="https://ko-fi.com/graceisonline" target="_blank" rel="noreferrer" className="underline">thank you</a> :-)</p>
+                <p className="mb-1">Enjoyed it? Send a <a href="https://ko-fi.com/graceisonline" target="_blank" rel="noreferrer" className="underline">thank you</a> (ෆ˙ᵕ˙ෆ)♡</p>
                 <img src={globe} alt="earth globe with mouse pointer" className="w-5 h-5" />
             </footer>
         </div>
     );
 }
-
-/*
-try {
-        const buffer = await lastGifBlob.arrayBuffer();
-        const gif = parseGIF(buffer);
-        const frames = decompressFrames(gif, true);
-
-        const { width, height } = frames[0].dims;
-
-        let muxer = new Mp4Muxer.Muxer({
-            target: new Mp4Muxer.ArrayBufferTarget(),
-            fastStart: 'in-memory',
-            video: {
-                codec: 'avc',
-                width: width,
-                height: height,
-            },
-        });
-
-        let encoder = new VideoEncoder({
-            output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
-            error: (e) => console.error('VideoEncoder error:', e),
-        });
-
-        const frameRate = Math.round(1000 / gifDelay);
-        encoder.configure({
-            codec: 'avc1.4D0028', // Level 4.0 H.264 'Main' profile codec
-            width: width,
-            height: height,
-            framerate: frameRate,
-            bitrate: 5_000_000
-        });
-
-        setStatus('Encoding video frames...');
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-
-        let timestamp = 0;
-
-        for(const [index, frame] of frames.entries()){
-            const imageData = new ImageData(frame.patch, frame.dims.width, frame.dims.height);
-            ctx.putImageData(imageData, frame.dims.left, frame.dims.top);
-            
-            const duration = (frame.delay || 100) * 1000; // convert GIF's delay to microseconds
-
-            const videoFrame = new VideoFrame(canvas, {
-                timestamp: timestamp, 
-                duration: duration
-            })
-
-            encoder.encode(videoFrame);
-            videoFrame.close();
-
-            timestamp += duration;
-            setVideoProgress(Math.round(((index + 1) / frames.length) * 100));
-        }
-        
-        setStatus('Finalizing video file...');
-        await encoder.flush();
-        let videoBuffer = muxer.finalize();
-        
-        const videoBlob = new Blob([videoBuffer], { type: 'video/mp4' });
-        triggerDownload(videoBlob, `animation_${gifDelay}ms.mp4`);
-        setStatus('Video download started!');
-    } catch (error) {
-        console.error('Error creating video:', error);
-        setStatus('Failed to create video. See console for details.');
-    } finally {
-        setIsDownloading(null);
-        setVideoProgress(0);
-    }
-*/
