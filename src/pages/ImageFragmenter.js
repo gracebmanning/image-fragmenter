@@ -24,16 +24,12 @@ export default function ImageFragmenter() {
     // Status and Loading State
     const [status, setStatus] = useState('Select an image to start.');
     const [isProcessing, setIsProcessing] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(null); // 'zip','video', or null ('gif' not needed)
+    const [isDownloading, setIsDownloading] = useState(null); // 'zip','video', 'gif', null
     const [gifProgress, setGifProgress] = useState(0);
-    const [videoProgress, setVideoProgress] = useState(0);
-    
-    // Refs
-    const fileInputRef = useRef(null);
+    const [videoProgress, setVideoProgress] = useState(0); 
 
     // Interactive GIF State
     const [gifDelay, setGifDelay] = useState(100);
-    const [gifPreviewUrl, setGifPreviewUrl] = useState('');
     const [lastGifBlob, setLastGifBlob] = useState(null);
     const [isRenderingGif, setIsRenderingGif] = useState(false);
 
@@ -41,10 +37,17 @@ export default function ImageFragmenter() {
     const [ffmpeg, setFfmpeg] = useState(null);
     const [ffmpegRead, setFfmpegReady] = useState(false);
 
+    // Refs
+    const fileInputRef = useRef(null);
+    const canvasRef = useRef(null);
+    const playbackTimeoutIdRef = useRef(null);
+
     // FILENAMES
     const zipFilename = `glitch-images.zip`;
     const gifFilename = `animation_${gifDelay}ms.gif`;
     const videoFilename = `animation_${gifDelay}ms.mp4`;
+
+    const allBusy = isProcessing || isDownloading || isRenderingGif;
 
     useEffect(() => {
         const loadFfmpeg = async () => {
@@ -59,6 +62,51 @@ export default function ImageFragmenter() {
         };
         loadFfmpeg();
     }, []);
+
+    useEffect(() => {
+        // stop existing playback loop
+        if(playbackTimeoutIdRef.current){
+            clearTimeout(playbackTimeoutIdRef.current)
+        }
+
+        if(generatedFrames.length > 0 && canvasRef.current & !allBusy){
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d');
+            const { width, height } = outputDimensions;
+            canvas.width = width;
+            canvas.height = height;
+
+            let frameIndex = 0;
+            const imageElements = [];
+
+            const startPlayback = () => {
+                const nextFrame = () => {
+                    ctx.drawImage(imageElements[frameIndex], 0, 0, width, height);
+                    frameIndex = (frameIndex + 1) % imageElements.length;
+
+                    playbackTimeoutIdRef.current = setTimeout(nextFrame, gifDelay);
+                }
+                nextFrame();
+            }
+
+            Promise.all(generatedFrames.map(blob => {
+                return new Promise(resolve => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.src = URL.createObjectURL(blob);
+                })
+            })).then(images => {
+                imageElements.push(...images);
+                startPlayback();
+            })
+
+            // cleanup
+            return() => {
+                clearTimeout(playbackTimeoutIdRef.current);
+                imageElements.forEach(img => URL.revokeObjectURL(img.src));
+            }
+        }
+    }, [gifDelay, generatedFrames, allBusy, outputDimensions])
 
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => setIsModalOpen(false);
@@ -78,7 +126,6 @@ export default function ImageFragmenter() {
                 setImagePreview(e.target.result);
                 setStatus('Image loaded. Ready to generate.');
                 setGeneratedFrames([]);
-                setGifPreviewUrl('');
                 setLastGifBlob(null);
             };
             img.src = e.target.result;
@@ -105,7 +152,6 @@ export default function ImageFragmenter() {
         setVideoProgress(0);
 
         setGifDelay(100);
-        setGifPreviewUrl('');
         setLastGifBlob(null);
         setIsRenderingGif(false);
     }
@@ -114,7 +160,6 @@ export default function ImageFragmenter() {
         if (!originalImage) return;
 
         setIsProcessing(true);
-        setGifPreviewUrl('');
         setLastGifBlob(null);
         setStatus('Preparing image...');
 
@@ -176,10 +221,10 @@ export default function ImageFragmenter() {
         
         setGeneratedFrames(frames);
         setIsProcessing(false);
-        renderGifPreview(gifDelay, frames, newOutputDimensions);
+        setStatus('Preview ready. Adjust speed with the slider!');
     };
 
-    const renderGifPreview = async (delay, framesToRender = generatedFrames, dimensions = outputDimensions) => {
+    const generateFinalGifBlob = async (delay, framesToRender = generatedFrames, dimensions = outputDimensions) => {
         if (framesToRender.length === 0) return;
         setIsRenderingGif(true);
         setGifProgress(0);
@@ -198,7 +243,7 @@ export default function ImageFragmenter() {
         gif.on('progress', (p) => {
             const progressPercent = Math.round(p * 100);
             setGifProgress(progressPercent);
-            setStatus(`Rendering preview: ${progressPercent}%`);
+            setStatus(`Rendering GIF: ${progressPercent}%`);
         });
 
         const imageElements = await Promise.all(framesToRender.map(blob => {
@@ -215,12 +260,9 @@ export default function ImageFragmenter() {
         });
 
         gif.on('finished', (blob) => {
-            const url = URL.createObjectURL(blob);
-            setGifPreviewUrl(url);
             setLastGifBlob(blob);
             setIsRenderingGif(false);
             setGifProgress(100);
-            setStatus('Adjust speed with the slider, then download!');
         });
 
         gif.render();
@@ -258,9 +300,14 @@ export default function ImageFragmenter() {
         setIsDownloading(null);
     };
 
-    const downloadGif = () => {
-        setStatus('GIF download started!');
-        triggerDownload(lastGifBlob, gifFilename);
+    const downloadGif = async () => {
+        setIsDownloading('gif');
+        await generateFinalGifBlob(gifDelay);
+        if(lastGifBlob){
+            triggerDownload(lastGifBlob, gifFilename);
+            setStatus('GIF download started!');
+        }
+        setIsDownloading(null);
     };
 
     const downloadVideo = async () => {
@@ -308,8 +355,6 @@ export default function ImageFragmenter() {
         }
     };
 
-    const allBusy = isProcessing || isDownloading || isRenderingGif;
-
     return (
         <div className="w-full min-h-screen flex flex-col items-center justify-center">
             <main className="w-full bg-neutral-400 flex flex-col flex-grow items-center justify-center p-4">
@@ -335,7 +380,7 @@ export default function ImageFragmenter() {
                             </div>
                         )}
 
-                        {imagePreview && !gifPreviewUrl && (
+                        {imagePreview && generatedFrames.length === 0 && (
                              <div className="w-full flex flex-col justify-center items-center">
                                 <img src={imagePreview} alt="Preview" className="w-[50%] h-auto rounded-sm border-2 border-black" />
                                 <button onClick={resetImage} disabled={allBusy} className="flex items-center justify-center mt-4 text-neutral-800 text-sm">
@@ -344,7 +389,7 @@ export default function ImageFragmenter() {
                             </div>
                         )}
 
-                        {originalImage && !gifPreviewUrl && (
+                        {originalImage && generatedFrames.length === 0 && (
                             <>
                                 <div className="field-row mt-4">
                                     <label htmlFor="frameCount" className="text-sm font-medium text-neutral-800">Frames</label>
@@ -357,17 +402,14 @@ export default function ImageFragmenter() {
                             </>
                         )}
 
-                        {gifPreviewUrl && !isRenderingGif && (
+                        {generatedFrames.length > 0 && !isRenderingGif && (
                              <div className="w-full flex flex-col justify-center items-center space-y-4">
                                 <p className="text-neutral-800 text-sm">Preview:</p>
-                                <img src={gifPreviewUrl} alt="GIF Preview" className="w-[80%] h-auto rounded-sm border-2 border-black" />
+                                <canvas ref={canvasRef} className="w-[80%] h-auto rounded-sm border-2 border-black" />
                                 <div className="field-row-stacked w-[80%]">
                                     <label htmlFor="delaySlider" className="text-sm font-medium text-neutral-800">Delay: {gifDelay}ms</label>
                                     <input id="delaySlider" type="range" min="10" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={isRenderingGif || isDownloading}/>
                                 </div>
-                                <button onClick={() => renderGifPreview(gifDelay)} disabled={allBusy} className="p-2 text-sm disabled:cursor-not-allowed">
-                                    Update Preview
-                                </button>
                             </div>
                         )}
 
@@ -390,7 +432,7 @@ export default function ImageFragmenter() {
                             </div>
                         )}
 
-                        {lastGifBlob && (
+                        {generatedFrames.length > 0 && (
                             <div className="field-row w-full mt-4 mb-4 flex flex-row justify-evenly items-center">
                                 <button onClick={downloadZip} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm">
                                     <TbDownload className="w-5 h-4 mr-1" /> ZIP
@@ -407,7 +449,7 @@ export default function ImageFragmenter() {
                     </div>
                 </div>
                 <div className="w-full max-w-md flex flex-row justify-between items-center mt-5">
-                    {lastGifBlob && (
+                    {generatedFrames.length > 0 && (
                         <button onClick={startOver} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm p-1 mx-2">
                             <img src={trash} alt="recycle bin" className="w-5 h-6 mr-1" /> Start Over
                         </button>
