@@ -300,8 +300,35 @@ export default function ImageFragmenter() {
         return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
     };
     
-    const triggerDownload = (blob, filename) => {
+    const triggerDownload = async (blob, filename) => {
+        const file = new File([blob], filename, { type: blob.type });
+
+        // use Web Share API (if available)
+        if(navigator.share && navigator.canShare({ files: [file] })){
+            try{
+                await navigator.share({
+                    files: [file],
+                    title: 'my fragmented image',
+                    text: 'check out this animation!'
+                });
+                setStatus('Shared successfully!');
+            } catch(error){
+                console.log('Share was cancelled or failed', error);
+            }
+        }
+
+        // iOS/mobile fallback: open in new tab
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        console.log(navigator.userAgent);
         const url = URL.createObjectURL(blob);
+
+        if(isIOS){
+            window.open(url, '_blank');
+            URL.revokeObjectURL(url);
+            return;
+        }
+
+        // fallback for desktops
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
