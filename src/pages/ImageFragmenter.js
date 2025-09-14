@@ -15,6 +15,7 @@ import HelpDialog from './HelpDialog';
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
+    const [preloadedImages, setPreloadedImages] = useState([]);
     const [imagePreview, setImagePreview] = useState('');
     const [generatedFrames, setGeneratedFrames] = useState([]);
     const [frameCount, setFrameCount] = useState(40);
@@ -62,50 +63,74 @@ export default function ImageFragmenter() {
         loadFfmpeg();
     }, []);
 
+    // preload images once when frames are generated
     useEffect(() => {
-        // stop existing playback loop
-        if(playbackTimeoutIdRef.current){
-            clearTimeout(playbackTimeoutIdRef.current)
+        // if there are no frames, clear the preloaded images
+        if (generatedFrames.length === 0) {
+            setPreloadedImages([]);
+            return;
         }
 
-        if(generatedFrames.length > 0 && canvasRef.current && !allBusy){
+        let isActive = true;
+        //let currentImages = [];
+
+        // convert all frame blobs to HTMLImageElements
+        Promise.all(generatedFrames.map(blob => {
+            return new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.src = URL.createObjectURL(blob);
+            })
+        })).then(images => {
+            if(isActive){
+                //currentImages = images;
+                setPreloadedImages(images);
+            }
+        });
+
+        return() => {
+            isActive = false;
+            //currentImages.forEach(img => URL.revokeObjectURL(img.src));
+        }
+    }, [generatedFrames])
+
+    // handle the animation playback loop
+    useEffect(() => {
+        // clear the previous loop before starting a new one
+        if (playbackTimeoutIdRef.current) {
+            clearTimeout(playbackTimeoutIdRef.current);
+        }
+
+        // run animation
+        if(preloadedImages.length > 0 && canvasRef.current && !allBusy){
             const canvas = canvasRef.current;
-            const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
             const { width, height } = outputDimensions;
             canvas.width = width;
             canvas.height = height;
 
             let frameIndex = 0;
-            const imageElements = [];
 
-            const startPlayback = () => {
-                const nextFrame = () => {
-                    ctx.drawImage(imageElements[frameIndex], 0, 0, width, height);
-                    frameIndex = (frameIndex + 1) % imageElements.length;
-
-                    playbackTimeoutIdRef.current = setTimeout(nextFrame, gifDelay);
-                }
-                nextFrame();
+            const nextFrame = () => {
+                if (!canvasRef.current || preloadedImages.length === 0) return;
+                
+                // draw the current preloaded image
+                ctx.drawImage(preloadedImages[frameIndex], 0, 0, width, height);
+                
+                // move to the next frame
+                frameIndex = (frameIndex + 1) % preloadedImages.length;
+                
+                // schedule the next frame draw with the current delay
+                playbackTimeoutIdRef.current = setTimeout(nextFrame, gifDelay);
             }
 
-            Promise.all(generatedFrames.map(blob => {
-                return new Promise(resolve => {
-                    const img = new Image();
-                    img.onload = () => resolve(img);
-                    img.src = URL.createObjectURL(blob);
-                })
-            })).then(images => {
-                imageElements.push(...images);
-                startPlayback();
-            })
-
-            // cleanup
-            return() => {
-                clearTimeout(playbackTimeoutIdRef.current);
-                imageElements.forEach(img => URL.revokeObjectURL(img.src));
-            }
+            nextFrame();
         }
-    }, [gifDelay, generatedFrames, allBusy, outputDimensions])
+
+        return() => {
+            clearTimeout(playbackTimeoutIdRef.current);
+        }
+    }, [preloadedImages, gifDelay, allBusy, outputDimensions])
 
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => setIsModalOpen(false);
@@ -174,7 +199,7 @@ export default function ImageFragmenter() {
             const scalingCanvas = document.createElement('canvas');
             scalingCanvas.width = finalWidth;
             scalingCanvas.height = finalHeight;
-            const scalingCtx = scalingCanvas.getContext('2d');
+            const scalingCtx = scalingCanvas.getContext('2d', { willReadFrequently: true });
             scalingCtx.drawImage(originalImage, 0, 0, finalWidth, finalHeight);
             imageToProcess = scalingCanvas;
         }
@@ -405,7 +430,7 @@ export default function ImageFragmenter() {
 
                         {imagePreview && generatedFrames.length === 0 && (
                              <div className="w-full flex flex-col justify-center items-center">
-                                <img src={imagePreview} alt="Preview" className="w-[50%] h-auto rounded-sm border-2 border-black" />
+                                <img src={imagePreview} alt="Preview" className="w-[50%] h-auto  rounded-sm border-2 border-black" />
                                 <button onClick={resetImage} disabled={allBusy} className="flex items-center justify-center mt-4 text-neutral-800 text-sm">
                                     <TbTrash className="w-5 h-4 mr-1" /> Delete
                                 </button>
@@ -428,7 +453,7 @@ export default function ImageFragmenter() {
                         {generatedFrames.length > 0 && !isProcessing && (
                              <div className="w-full flex flex-col justify-center items-center space-y-4">
                                 <p className="text-neutral-800 text-sm">Preview:</p>
-                                <canvas ref={canvasRef} className="w-[80%] h-auto rounded-sm border-2 border-black" />
+                                <canvas ref={canvasRef} className="max-w-[80%] max-h-[350px] rounded-sm border-2 border-black" />
                                 <div className="field-row-stacked w-[80%]">
                                     <label htmlFor="delaySlider" className="text-sm font-medium text-neutral-800">Delay: {gifDelay}ms</label>
                                     <input id="delaySlider" type="range" min="10" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={isRenderingGif || isDownloading}/>
@@ -450,9 +475,11 @@ export default function ImageFragmenter() {
 
                         {/* VIDEO PROGRESS BAR */}
                         {isDownloading === 'video' && (
-                            <div className="progress-indicator segmented mt-4 h-2.5 my-2">
+                            <div className="w-full mt-4 mb-4 flex flex-col justify-evenly items-center">
                                 <img src={construction} alt="construction man" className="w-20 h-auto mr-1" />
-                                <span className="progress-indicator-bar" style={{width: `${(gifProgress + videoProgress)/2}%`}} />
+                                <div className="progress-indicator segmented w-full mt-4 h-2.5 my-2">
+                                    <span className="progress-indicator-bar" style={{width: `${(gifProgress + videoProgress)/2}%`}} />
+                                </div>
                             </div>
                         )}
 
