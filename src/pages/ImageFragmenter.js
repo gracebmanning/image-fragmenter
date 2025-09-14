@@ -430,7 +430,7 @@ export default function ImageFragmenter() {
 
                         {imagePreview && generatedFrames.length === 0 && (
                              <div className="w-full flex flex-col justify-center items-center">
-                                <img src={imagePreview} alt="Preview" className="w-[50%] h-auto  rounded-sm border-2 border-black" />
+                                <img src={imagePreview} alt="Preview" className="w-[70%] h-auto  rounded-sm border-2 border-black" />
                                 <button onClick={resetImage} disabled={allBusy} className="flex items-center justify-center mt-4 text-neutral-800 text-sm">
                                     <TbTrash className="w-5 h-4 mr-1" /> Delete
                                 </button>
@@ -513,7 +513,7 @@ export default function ImageFragmenter() {
             </main>
             <footer className="w-full font-sans text-base bg-neutral-300 text-neutral-600 flex flex-col items-center justify-center p-4">
                 <p className="mb-1">Created by <a href="https://graceis.online/" target="_blank" rel="noreferrer" className="underline">Grace Manning</a>.</p>
-                <p className="mb-1">Enjoyed it? Send a <a href="https://ko-fi.com/graceisonline" target="_blank" rel="noreferrer" className="underline">thank you</a> (ෆ˙ᵕ˙ෆ)♡</p>
+                <p className="mb-1">Enjoyed it? Send a <a href="https://ko-fi.com/graceisonline" target="_blank" rel="noreferrer" className="underline">thank you</a>!</p>
                 <img src={globe} alt="earth globe with mouse pointer" className="w-5 h-5" />
             </footer>
         </div>
