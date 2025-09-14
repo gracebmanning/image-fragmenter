@@ -30,7 +30,6 @@ export default function ImageFragmenter() {
 
     // Interactive GIF State
     const [gifDelay, setGifDelay] = useState(100);
-    const [lastGifBlob, setLastGifBlob] = useState(null);
     const [isRenderingGif, setIsRenderingGif] = useState(false);
 
     // FFmpeg State
@@ -69,7 +68,7 @@ export default function ImageFragmenter() {
             clearTimeout(playbackTimeoutIdRef.current)
         }
 
-        if(generatedFrames.length > 0 && canvasRef.current & !allBusy){
+        if(generatedFrames.length > 0 && canvasRef.current && !allBusy){
             const canvas = canvasRef.current;
             const ctx = canvas.getContext('2d');
             const { width, height } = outputDimensions;
@@ -126,7 +125,6 @@ export default function ImageFragmenter() {
                 setImagePreview(e.target.result);
                 setStatus('Image loaded. Ready to generate.');
                 setGeneratedFrames([]);
-                setLastGifBlob(null);
             };
             img.src = e.target.result;
         };
@@ -152,7 +150,6 @@ export default function ImageFragmenter() {
         setVideoProgress(0);
 
         setGifDelay(100);
-        setLastGifBlob(null);
         setIsRenderingGif(false);
     }
 
@@ -160,7 +157,6 @@ export default function ImageFragmenter() {
         if (!originalImage) return;
 
         setIsProcessing(true);
-        setLastGifBlob(null);
         setStatus('Preparing image...');
 
         const maxWidth = 1920;
@@ -224,48 +220,54 @@ export default function ImageFragmenter() {
         setStatus('Preview ready. Adjust speed with the slider!');
     };
 
-    const generateFinalGifBlob = async (delay, framesToRender = generatedFrames, dimensions = outputDimensions) => {
-        if (framesToRender.length === 0) return;
-        setIsRenderingGif(true);
-        setGifProgress(0);
-        setStatus('Rendering GIF preview...');
+    const generateFinalGifBlob = (delay) => {
+        return new Promise(async(resolve, reject) => {
+            if (generatedFrames.length === 0) {
+                reject(new Error("No frames to render."));
+                return;
+            }
 
-        const { width, height } = dimensions || outputDimensions || { width: originalImage.width, height: originalImage.height };
+            setIsRenderingGif(true);
+            setGifProgress(0);
+            setStatus('Rendering GIF...');
 
-        const gif = new GIF({
-            workers: 4,
-            quality: 10,
-            width: width,
-            height: height,
-            workerScript: '/js/gif.worker.js',
-        });
-
-        gif.on('progress', (p) => {
-            const progressPercent = Math.round(p * 100);
-            setGifProgress(progressPercent);
-            setStatus(`Rendering GIF: ${progressPercent}%`);
-        });
-
-        const imageElements = await Promise.all(framesToRender.map(blob => {
-            return new Promise(resolve => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.src = URL.createObjectURL(blob);
+            const { width, height } = outputDimensions;
+            const gif = new GIF({
+                workers: 4,
+                quality: 10,
+                width: width,
+                height: height,
+                workerScript: '/js/gif.worker.js',
             });
-        }));
 
-        imageElements.forEach(img => {
-            gif.addFrame(img, { delay: delay });
-            URL.revokeObjectURL(img.src);
+            gif.on('progress', (p) => {
+                const progressPercent = Math.round(p * 100);
+                setGifProgress(progressPercent);
+                setStatus(`Rendering GIF: ${progressPercent}%`);
+            });
+
+            gif.on('finished', (blob) => {
+                setIsRenderingGif(false);
+                setGifProgress(100);
+                setStatus('GIF Rendered!');
+                resolve(blob);
+            });
+
+            const imageElements = await Promise.all(generatedFrames.map(blob => {
+                return new Promise(resolveImg => {
+                    const img = new Image();
+                    img.onload = () => resolveImg(img);
+                    img.src = URL.createObjectURL(blob);
+                });
+            }));
+
+            imageElements.forEach(img => {
+                gif.addFrame(img, { delay: delay });
+                URL.revokeObjectURL(img.src);
+            });
+
+            gif.render();
         });
-
-        gif.on('finished', (blob) => {
-            setLastGifBlob(blob);
-            setIsRenderingGif(false);
-            setGifProgress(100);
-        });
-
-        gif.render();
     };
 
     const getCanvasBlob = (canvas) => {
@@ -302,10 +304,13 @@ export default function ImageFragmenter() {
 
     const downloadGif = async () => {
         setIsDownloading('gif');
-        await generateFinalGifBlob(gifDelay);
-        if(lastGifBlob){
-            triggerDownload(lastGifBlob, gifFilename);
+        try{
+            const finalGifBlob = await generateFinalGifBlob(gifDelay);
+            triggerDownload(finalGifBlob, gifFilename);
             setStatus('GIF download started!');
+        } catch(error){
+            console.error('Failed to generate GIF:', error);
+            setStatus('Error creating GIF. See console.');
         }
         setIsDownloading(null);
     };
@@ -315,17 +320,23 @@ export default function ImageFragmenter() {
             setStatus('FFmpeg is not loaded yet. Please wait.');
             return;
         }
-        if(!lastGifBlob){
-            setStatus('Error: GIF data not found.');
-            return;
-        }
 
         setIsDownloading('video');
-        setStatus('Preparing to download video...');
         setVideoProgress(0);
 
         try{
-            await ffmpeg.writeFile(gifFilename, await fetchFile(lastGifBlob));
+            setStatus('Rendering GIF for video conversion...');
+            const finalGifBlob = await generateFinalGifBlob(gifDelay); 
+            
+            const files = await ffmpeg.listDir('/');
+            if (files.some(file => file.name === gifFilename)) {
+                await ffmpeg.deleteFile(gifFilename);
+            }
+            if (files.some(file => file.name === videoFilename)) {
+                await ffmpeg.deleteFile(videoFilename);
+            }
+            
+            await ffmpeg.writeFile(gifFilename, await fetchFile(finalGifBlob));
             
             setStatus('Converting GIF to MP4...');
             ffmpeg.on('progress', ({ progress }) => {
@@ -352,6 +363,18 @@ export default function ImageFragmenter() {
         } finally{
             setIsDownloading(null);
             setVideoProgress(0);
+
+            try{
+                const finalFiles = await ffmpeg.listDir('/');
+                if (finalFiles.some(file => file.name === gifFilename)) {
+                    await ffmpeg.deleteFile(gifFilename);
+                }
+                if (finalFiles.some(file => file.name === videoFilename)) {
+                    await ffmpeg.deleteFile(videoFilename);
+                }
+            } catch(cleanupError){
+                console.error('Error during FFmpeg cleanup:', cleanupError);
+            }
         }
     };
 
@@ -402,7 +425,7 @@ export default function ImageFragmenter() {
                             </>
                         )}
 
-                        {generatedFrames.length > 0 && !isRenderingGif && (
+                        {generatedFrames.length > 0 && !isProcessing && (
                              <div className="w-full flex flex-col justify-center items-center space-y-4">
                                 <p className="text-neutral-800 text-sm">Preview:</p>
                                 <canvas ref={canvasRef} className="w-[80%] h-auto rounded-sm border-2 border-black" />
@@ -416,7 +439,7 @@ export default function ImageFragmenter() {
                         <div className="text-center text-base text-neutral-800 min-h-5 m-4">{status}</div>
                         
                         {/* GIF PROGRESS BAR */}
-                        {isRenderingGif && (
+                        {isDownloading === 'gif' && (
                             <div className="w-full mt-4 mb-4 flex flex-col justify-evenly items-center">
                                 <img src={construction} alt="construction man" className="w-20 h-auto mr-1" />
                                 <div className="progress-indicator segmented w-full mt-4 h-2.5 my-2">
@@ -428,7 +451,8 @@ export default function ImageFragmenter() {
                         {/* VIDEO PROGRESS BAR */}
                         {isDownloading === 'video' && (
                             <div className="progress-indicator segmented mt-4 h-2.5 my-2">
-                                <span className="progress-indicator-bar" style={{width: `${videoProgress}%`}} />
+                                <img src={construction} alt="construction man" className="w-20 h-auto mr-1" />
+                                <span className="progress-indicator-bar" style={{width: `${(gifProgress + videoProgress)/2}%`}} />
                             </div>
                         )}
 
