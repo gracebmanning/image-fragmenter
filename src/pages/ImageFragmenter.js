@@ -15,9 +15,9 @@ import HelpDialog from './HelpDialog';
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
-    const [preloadedImages, setPreloadedImages] = useState([]);
     const [imagePreview, setImagePreview] = useState('');
     const [generatedFrames, setGeneratedFrames] = useState([]);
+    const [preloadedImages, setPreloadedImages] = useState([]);
     const [frameCount, setFrameCount] = useState(40);
     const [outputDimensions, setOutputDimensions] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -165,6 +165,7 @@ export default function ImageFragmenter() {
         setOriginalImage(null);
         setImagePreview('');
         setGeneratedFrames([]);
+        setPreloadedImages([]);
         setFrameCount(40);
         setOutputDimensions(null);
 
