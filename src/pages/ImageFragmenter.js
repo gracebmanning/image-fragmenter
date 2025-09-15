@@ -6,6 +6,7 @@ import GIF from "gif.js";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
+import { useImageEffects } from "../hooks/useImageEffects";
 
 import mouse from "../assets/mouse_speed.png";
 import globe from "../assets/internet_connection_wiz-0.png";
@@ -22,6 +23,7 @@ export default function ImageFragmenter() {
   const [frameCount, setFrameCount] = useState(40);
   const [outputDimensions, setOutputDimensions] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { effects, ...effectSetters } = useImageEffects();
 
   // Status and Loading State
   const [status, setStatus] = useState("Select an image to start.");
@@ -37,14 +39,6 @@ export default function ImageFragmenter() {
   // FFmpeg State
   const [ffmpeg, setFfmpeg] = useState(null);
   const [ffmpegRead, setFfmpegReady] = useState(false);
-
-  // Image Effects
-  const [seamless, setSeamless] = useState(false);
-  const [invert, setInvert] = useState(false);
-  const [grayscale, setGrayscale] = useState(false);
-  const [sepia, setSepia] = useState(false);
-  const [edgeDetect, setEdgeDetect] = useState(false);
-  const [pixelate, setPixelate] = useState(0);
 
   // Refs
   const fileInputRef = useRef(null);
@@ -120,9 +114,9 @@ export default function ImageFragmenter() {
       canvas.width = width;
       canvas.height = height;
 
-      // create a frame sequence in case of 'seamless' option
+      // create a frame sequence in case of 'effects.effects.seamless' option
       let frameSequence = Array.from({ length: preloadedImages.length }, (_, i) => i);
-      if (seamless && preloadedImages.length > 2) {
+      if (effects.seamless && preloadedImages.length > 2) {
         const reversed = [...frameSequence].reverse().slice(1, -1);
         frameSequence = [...frameSequence, ...reversed];
       }
@@ -141,13 +135,7 @@ export default function ImageFragmenter() {
         ctx.drawImage(preloadedImages[frameIndex], 0, 0, width, height);
 
         // apply effects to canvas
-        applyEffects(ctx, width, height, {
-          invert,
-          grayscale,
-          sepia,
-          edgeDetect,
-          pixelate,
-        });
+        applyEffects(ctx, width, height, effects);
 
         // move to the next frame
         sequenceIndex = (sequenceIndex + 1) % frameSequence.length;
@@ -162,7 +150,7 @@ export default function ImageFragmenter() {
     return () => {
       clearTimeout(playbackTimeoutIdRef.current);
     };
-  }, [preloadedImages, gifDelay, allBusy, outputDimensions, seamless, invert, grayscale, sepia, edgeDetect, pixelate]);
+  }, [preloadedImages, gifDelay, allBusy, outputDimensions, effects]);
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
@@ -216,12 +204,7 @@ export default function ImageFragmenter() {
     setGifDelay(100);
     setIsRenderingGif(false);
 
-    setSeamless(false);
-    setInvert(false);
-    setGrayscale(false);
-    setSepia(false);
-    setEdgeDetect(false);
-    setPixelate(0);
+    effectSetters.resetEffects();
   };
 
   const generateFrames = async () => {
@@ -340,9 +323,9 @@ export default function ImageFragmenter() {
       tempCanvas.height = height;
       const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
 
-      // seamless loop
+      // effects.seamless loop
       let framesToRender = [...imageElements];
-      if (seamless) {
+      if (effects.seamless) {
         // reverse frames and remove first and last to avoid duplicates
         const reversed = [...imageElements].reverse().slice(1, -1);
         framesToRender = [...framesToRender, ...reversed];
@@ -351,7 +334,7 @@ export default function ImageFragmenter() {
       framesToRender.forEach((img) => {
         tempCtx.clearRect(0, 0, width, height);
         tempCtx.drawImage(img, 0, 0, width, height);
-        applyEffects(tempCtx, width, height, { invert, grayscale, sepia, edgeDetect, pixelate });
+        applyEffects(tempCtx, width, height, effects);
         gif.addFrame(tempCanvas, { delay: delay, copy: true }); // copy=true to capture the current state of the temp canvas
       });
 
@@ -564,13 +547,13 @@ export default function ImageFragmenter() {
                 </div>
                 <div className="flex flex-row justify-center items-center w-[80%]">
                   <div className="field-row w-[50%]">
-                    <input type="checkbox" id="seamlessLoopCheckbox" checked={seamless} onChange={() => setSeamless(!seamless)} disabled={allBusy} />
+                    <input type="checkbox" id="seamlessLoopCheckbox" checked={effects.seamless} onChange={() => effectSetters.setSeamless(!effects.seamless)} disabled={allBusy} />
                     <label htmlFor="seamlessLoopCheckbox" className="text-sm font-medium text-neutral-800">
                       Seamless loop
                     </label>
                   </div>
                   <div className="field-row w-[50%]">
-                    <input type="checkbox" id="invertColorsCheckbox" checked={invert} onChange={() => setInvert(!invert)} disabled={allBusy} />
+                    <input type="checkbox" id="invertColorsCheckbox" checked={effects.invert} onChange={() => effectSetters.setInvert(!effects.invert)} disabled={allBusy} />
                     <label htmlFor="invertColorsCheckbox" className="text-sm font-medium text-neutral-800">
                       Invert colors
                     </label>
@@ -578,13 +561,13 @@ export default function ImageFragmenter() {
                 </div>
                 <div className="flex flex-row justify-center items-center w-[80%]">
                   <div className="field-row w-[80%]">
-                    <input type="checkbox" id="grayscaleCheckbox" checked={grayscale} onChange={() => setGrayscale(!grayscale)} disabled={allBusy} />
+                    <input type="checkbox" id="grayscaleCheckbox" checked={effects.grayscale} onChange={() => effectSetters.setGrayscale(!effects.grayscale)} disabled={allBusy} />
                     <label htmlFor="grayscaleCheckbox" className="text-sm font-medium text-neutral-800">
                       Grayscale
                     </label>
                   </div>
                   <div className="field-row w-[80%]">
-                    <input type="checkbox" id="sepiaCheckbox" checked={sepia} onChange={() => setSepia(!sepia)} disabled={allBusy} />
+                    <input type="checkbox" id="sepiaCheckbox" checked={effects.sepia} onChange={() => effectSetters.setSepia(!effects.sepia)} disabled={allBusy} />
                     <label htmlFor="sepiaCheckbox" className="text-sm font-medium text-neutral-800">
                       Sepia
                     </label>
@@ -592,7 +575,7 @@ export default function ImageFragmenter() {
                 </div>
                 <div className="flex flex-row justify-center items-center w-[80%]">
                   <div className="field-row w-[80%]">
-                    <input type="checkbox" id="edgeDetectCheckbox" checked={edgeDetect} onChange={() => setEdgeDetect(!edgeDetect)} disabled={allBusy} />
+                    <input type="checkbox" id="edgeDetectCheckbox" checked={effects.edgeDetect} onChange={() => effectSetters.setEdgeDetect(!effects.edgeDetect)} disabled={allBusy} />
                     <label htmlFor="edgeDetectCheckbox" className="text-sm font-medium text-neutral-800">
                       Edge detect
                     </label>
@@ -607,8 +590,8 @@ export default function ImageFragmenter() {
                       min="0"
                       max="100"
                       step="1"
-                      value={pixelate}
-                      onChange={(e) => setPixelate(Number(e.target.value))}
+                      value={effects.pixelate}
+                      onChange={(e) => effectSetters.setPixelate(Number(e.target.value))}
                       disabled={isRenderingGif || isDownloading}
                     />
                   </div>
