@@ -20,6 +20,10 @@ export default function Footer() {
             </p>
             <div className="w-full flex flex-row justify-center items-center text-sm mb-2">
                 *
+                <Link to="/" className="underline mx-2">
+                    Home
+                </Link>
+                *
                 <Link to="/privacy" className="underline mx-2">
                     Privacy
                 </Link>
