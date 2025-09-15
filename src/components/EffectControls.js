@@ -1,0 +1,54 @@
+import "98.css";
+
+export default function EffectControls({ effects, setters, disabled }) {
+    const { seamless, invert, grayscale, sepia, edgeDetect, pixelate } = effects;
+    const { setSeamless, setInvert, setGrayscale, setSepia, setEdgeDetect, setPixelate } = setters;
+
+    return (
+        <>
+            <div className="flex flex-row justify-center items-center w-[90%]">
+                <div className="field-row w-full">
+                    <input type="checkbox" id="seamlessLoopCheckbox" checked={seamless} onChange={() => setSeamless(!seamless)} disabled={disabled} />
+                    <label htmlFor="seamlessLoopCheckbox" className="text-sm font-medium text-neutral-800">
+                        Seamless loop
+                    </label>
+                </div>
+                <div className="field-row w-full">
+                    <input type="checkbox" id="invertColorsCheckbox" checked={invert} onChange={() => setInvert(!invert)} disabled={disabled} />
+                    <label htmlFor="invertColorsCheckbox" className="text-sm font-medium text-neutral-800">
+                        Invert colors
+                    </label>
+                </div>
+            </div>
+            <div className="flex flex-row justify-center items-center w-[90%]">
+                <div className="field-row w-full">
+                    <input type="checkbox" id="grayscaleCheckbox" checked={grayscale} onChange={() => setGrayscale(!grayscale)} disabled={disabled} />
+                    <label htmlFor="grayscaleCheckbox" className="text-sm font-medium text-neutral-800">
+                        Grayscale
+                    </label>
+                </div>
+
+                <div className="field-row w-full">
+                    <input type="checkbox" id="sepiaCheckbox" checked={sepia} onChange={() => setSepia(!sepia)} disabled={disabled} />
+                    <label htmlFor="sepiaCheckbox" className="text-sm font-medium text-neutral-800">
+                        Sepia
+                    </label>
+                </div>
+            </div>
+            <div className="flex flex-row justify-center items-center w-[90%]">
+                <div className="field-row w-[40%]">
+                    <input type="checkbox" id="edgeDetectCheckbox" checked={edgeDetect} onChange={() => setEdgeDetect(!edgeDetect)} disabled={disabled} />
+                    <label htmlFor="edgeDetectCheckbox" className="text-sm font-medium text-neutral-800">
+                        Edge detect
+                    </label>
+                </div>
+                <div className="field-row w-[60%]">
+                    <label htmlFor="pixelateSlider" className="text-sm font-medium text-neutral-800">
+                        Pixelate
+                    </label>
+                    <input id="pixelateSlider" type="range" min="0" max="100" step="1" value={pixelate} onChange={(e) => setPixelate(Number(e.target.value))} disabled={disabled} />
+                </div>
+            </div>
+        </>
+    );
+}
