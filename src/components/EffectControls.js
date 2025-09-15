@@ -1,5 +1,3 @@
-import "98.css";
-
 export default function EffectControls({ effects, setters, disabled }) {
     const { seamless, invert, grayscale, sepia, edgeDetect, pixelate } = effects;
     const { setSeamless, setInvert, setGrayscale, setSepia, setEdgeDetect, setPixelate } = setters;

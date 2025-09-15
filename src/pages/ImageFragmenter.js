@@ -1,4 +1,3 @@
-import "98.css";
 import { useEffect, useState, useRef } from "react";
 import { TbBolt, TbTrash } from "react-icons/tb";
 import JSZip from "jszip";
@@ -559,14 +558,14 @@ export default function ImageFragmenter() {
                     </div>
                 </div>
                 <div className="w-full max-w-md flex flex-row justify-between items-center mt-5">
+                    <button onClick={openModal} disabled={allBusy} className="flex flex-row items-center justify-center text-neutral-800 text-sm p-1 mx-2">
+                        <img src={help} alt="paper with question mark" className="h-6 mr-1" /> Help
+                    </button>
                     {generatedFrames.length > 0 && (
                         <button onClick={startOver} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm p-1 mx-2">
                             <img src={trash} alt="recycle bin" className="w-5 h-6 mr-1" /> Start Over
                         </button>
                     )}
-                    <button onClick={openModal} disabled={allBusy} className="flex flex-row items-center justify-center text-neutral-800 text-sm p-1 mx-2">
-                        <img src={help} alt="paper with question mark" className="h-6 mr-1" /> Help
-                    </button>
                 </div>
                 <HelpDialog isOpen={isModalOpen} onClose={closeModal} />
             </main>

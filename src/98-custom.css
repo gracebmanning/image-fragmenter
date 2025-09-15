@@ -1,0 +1,15 @@
+/* Increase the size of the button */
+.title-bar-controls button {
+    width: 20px;
+    height: 18px;
+    background-size: 50%;
+    margin-right: 5px;
+}
+
+.title-bar-controls button:active {
+    padding-top: 2px;
+}
+
+ul.tree-view{
+    font-size: 14px;
+}

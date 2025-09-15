@@ -1,4 +1,3 @@
-import "98.css";
 import construction from "../assets/construction.gif";
 
 export default function ProgressBar({ type, gifProgress, videoProgress }) {
