@@ -9,11 +9,11 @@ import applyEffects from "../utils/imageEffects";
 import { useImageEffects } from "../hooks/useImageEffects";
 
 import mouse from "../assets/mouse_speed.png";
-import globe from "../assets/internet_connection_wiz-0.png";
 import trash from "../assets/recycle_bin_full-2.png";
 import construction from "../assets/construction.gif";
 import help from "../assets/help_sheet-0.png";
-import HelpDialog from "./HelpDialog";
+import HelpDialog from "../components/HelpDialog";
+import Footer from "../components/Footer";
 
 export default function ImageFragmenter() {
   const [originalImage, setOriginalImage] = useState(null);
@@ -649,23 +649,7 @@ export default function ImageFragmenter() {
         </div>
         <HelpDialog isOpen={isModalOpen} onClose={closeModal} />
       </main>
-      <footer className="w-full font-sans text-base bg-neutral-300 text-neutral-600 flex flex-col items-center justify-center p-4">
-        <p className="mb-1">
-          Created by{" "}
-          <a href="https://graceis.online/" target="_blank" rel="noreferrer" className="underline">
-            Grace Manning
-          </a>
-          .
-        </p>
-        <p className="mb-1">
-          Enjoyed it? Send a{" "}
-          <a href="https://ko-fi.com/graceisonline" target="_blank" rel="noreferrer" className="underline">
-            thank you
-          </a>
-          !
-        </p>
-        <img src={globe} alt="earth globe with mouse pointer" className="w-5 h-5" />
-      </footer>
+      <Footer />
     </div>
   );
 }
