@@ -10,11 +10,12 @@ import { useImageEffects } from "../hooks/useImageEffects";
 import mouse from "../assets/mouse_speed.png";
 import trash from "../assets/recycle_bin_full-2.png";
 import help from "../assets/help_sheet-0.png";
+
 import HelpDialog from "../components/HelpDialog";
-import Footer from "../components/Footer";
 import EffectControls from "../components/EffectControls";
 import DownloadPanel from "../components/DownloadPanel";
 import ProgressBar from "../components/ProgressBar";
+import Layout from "../layouts/layout";
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
@@ -484,92 +485,91 @@ export default function ImageFragmenter() {
         }
     };
 
-    return (
-        <div className="w-full min-h-screen flex flex-col items-center justify-center">
-            <main className="w-full bg-neutral-400 flex flex-col flex-grow items-center justify-center p-4">
-                <div className="window w-full max-w-md p-6 md:p-8 space-y-6">
-                    <div className="title-bar">
-                        <div className="title-bar-text text-xl font-bold text-white">Image Fragmenter</div>
-                    </div>
-                    <div className="window-body">
-                        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
-
-                        {!imagePreview && (
-                            <div className="field-row flex flex-col justify-center m-4">
-                                <button onClick={() => fileInputRef.current.click()} className="w-full flex flex-col items-center justify-center hover:scale-105">
-                                    <img src={mouse} alt="cursor icon with speed lines" className="w-10 h-10 m-2" />
-                                    <span className="m-2 text-neutral-800 text-sm">Click to Upload Image</span>
-                                </button>
-                            </div>
-                        )}
-
-                        {imagePreview && generatedFrames.length === 0 && (
-                            <div className="w-full flex flex-col justify-center items-center">
-                                <img src={imagePreview} alt="Preview" className="max-w-[80%] max-h-[350px]  rounded-sm border-2 border-black" />
-                                <button onClick={resetImage} disabled={allBusy} className="flex items-center justify-center mt-4 text-neutral-800 text-sm">
-                                    <TbTrash className="w-5 h-4 mr-1" /> Delete
-                                </button>
-                            </div>
-                        )}
-
-                        {originalImage && generatedFrames.length === 0 && (
-                            <>
-                                <div className="field-row mt-4">
-                                    <label htmlFor="frameCount" className="text-sm font-medium text-neutral-800">
-                                        Frames
-                                    </label>
-                                    <input
-                                        id="frameCount"
-                                        type="number"
-                                        value={frameCount}
-                                        onChange={(e) => setFrameCount(Number(e.target.value))}
-                                        className="text-neutral-700 text-xs"
-                                        disabled={allBusy}
-                                    />
-                                </div>
-                                <button onClick={generateFrames} disabled={allBusy} className="w-full mt-4 p-2 text-sm flex items-center justify-center disabled:cursor-not-allowed">
-                                    {(isProcessing || isRenderingGif) && <TbBolt className="w-5 h-5 mr-2 animate-pulse" />}
-                                    {isProcessing ? "Generating..." : isRenderingGif ? "Rendering..." : "Generate Art"}
-                                </button>
-                            </>
-                        )}
-
-                        {generatedFrames.length > 0 && !isProcessing && (
-                            <div className="w-full flex flex-col justify-center items-center space-y-4">
-                                <p className="text-neutral-800 text-sm">Preview:</p>
-                                <canvas ref={canvasRef} className="max-w-[80%] max-h-[350px] rounded-sm border-2 border-black" />
-                                <div className="field-row-stacked w-[90%]">
-                                    <label htmlFor="delaySlider" className="text-sm font-medium text-neutral-800">
-                                        Delay: {gifDelay}ms
-                                    </label>
-                                    <input id="delaySlider" type="range" min="10" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={allBusy} />
-                                </div>
-                                <EffectControls effects={effects} setters={effectSetters} disabled={allBusy} />
-                            </div>
-                        )}
-
-                        <div className="text-center text-base text-neutral-800 min-h-5 m-5">{status}</div>
-
-                        {isDownloading === "gif" && <ProgressBar type="gif" gifProgress={gifProgress} videoProgress={videoProgress} />}
-
-                        {isDownloading === "video" && <ProgressBar type="video" gifProgress={gifProgress} videoProgress={videoProgress} />}
-
-                        {generatedFrames.length > 0 && <DownloadPanel downloadFunctions={{ downloadZip, downloadGif, downloadVideo }} allBusy={allBusy} />}
-                    </div>
+    const body = (
+        <main className="w-full bg-neutral-400 flex flex-col flex-grow items-center justify-center p-4">
+            <div className="window w-full max-w-md p-6 md:p-8 space-y-6">
+                <div className="title-bar">
+                    <div className="title-bar-text text-xl font-bold text-white">Image Fragmenter</div>
                 </div>
-                <div className="w-full max-w-md flex flex-row justify-between items-center mt-5">
-                    <button onClick={openModal} disabled={allBusy} className="flex flex-row items-center justify-center text-neutral-800 text-sm p-1 mx-2">
-                        <img src={help} alt="paper with question mark" className="h-6 mr-1" /> Help
-                    </button>
-                    {generatedFrames.length > 0 && (
-                        <button onClick={startOver} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm p-1 mx-2">
-                            <img src={trash} alt="recycle bin" className="w-5 h-6 mr-1" /> Start Over
-                        </button>
+                <div className="window-body">
+                    <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+
+                    {!imagePreview && (
+                        <div className="field-row flex flex-col justify-center m-4">
+                            <button onClick={() => fileInputRef.current.click()} className="w-full flex flex-col items-center justify-center hover:scale-105">
+                                <img src={mouse} alt="cursor icon with speed lines" className="w-10 h-10 m-2" />
+                                <span className="m-2 text-neutral-800 text-sm">Click to Upload Image</span>
+                            </button>
+                        </div>
                     )}
+
+                    {imagePreview && generatedFrames.length === 0 && (
+                        <div className="w-full flex flex-col justify-center items-center">
+                            <img src={imagePreview} alt="Preview" className="max-w-[80%] max-h-[350px]  rounded-sm border-2 border-black" />
+                            <button onClick={resetImage} disabled={allBusy} className="flex items-center justify-center mt-4 text-neutral-800 text-sm">
+                                <TbTrash className="w-5 h-4 mr-1" /> Delete
+                            </button>
+                        </div>
+                    )}
+
+                    {originalImage && generatedFrames.length === 0 && (
+                        <>
+                            <div className="field-row mt-4">
+                                <label htmlFor="frameCount" className="text-sm font-medium text-neutral-800">
+                                    Frames
+                                </label>
+                                <input
+                                    id="frameCount"
+                                    type="number"
+                                    value={frameCount}
+                                    onChange={(e) => setFrameCount(Number(e.target.value))}
+                                    className="text-neutral-700 text-xs"
+                                    disabled={allBusy}
+                                />
+                            </div>
+                            <button onClick={generateFrames} disabled={allBusy} className="w-full mt-4 p-2 text-sm flex items-center justify-center disabled:cursor-not-allowed">
+                                {(isProcessing || isRenderingGif) && <TbBolt className="w-5 h-5 mr-2 animate-pulse" />}
+                                {isProcessing ? "Generating..." : isRenderingGif ? "Rendering..." : "Generate Art"}
+                            </button>
+                        </>
+                    )}
+
+                    {generatedFrames.length > 0 && !isProcessing && (
+                        <div className="w-full flex flex-col justify-center items-center space-y-4">
+                            <p className="text-neutral-800 text-sm">Preview:</p>
+                            <canvas ref={canvasRef} className="max-w-[80%] max-h-[350px] rounded-sm border-2 border-black" />
+                            <div className="field-row-stacked w-[90%]">
+                                <label htmlFor="delaySlider" className="text-sm font-medium text-neutral-800">
+                                    Delay: {gifDelay}ms
+                                </label>
+                                <input id="delaySlider" type="range" min="10" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={allBusy} />
+                            </div>
+                            <EffectControls effects={effects} setters={effectSetters} disabled={allBusy} />
+                        </div>
+                    )}
+
+                    <div className="text-center text-base text-neutral-800 min-h-5 m-5">{status}</div>
+
+                    {isDownloading === "gif" && <ProgressBar type="gif" gifProgress={gifProgress} videoProgress={videoProgress} />}
+
+                    {isDownloading === "video" && <ProgressBar type="video" gifProgress={gifProgress} videoProgress={videoProgress} />}
+
+                    {generatedFrames.length > 0 && <DownloadPanel downloadFunctions={{ downloadZip, downloadGif, downloadVideo }} allBusy={allBusy} />}
                 </div>
-                <HelpDialog isOpen={isModalOpen} onClose={closeModal} />
-            </main>
-            <Footer />
-        </div>
+            </div>
+            <div className="w-full max-w-md flex flex-row justify-between items-center mt-5">
+                <button onClick={openModal} disabled={allBusy} className="flex flex-row items-center justify-center text-neutral-800 text-sm p-1 mx-2">
+                    <img src={help} alt="paper with question mark" className="h-6 mr-1" /> Help
+                </button>
+                {generatedFrames.length > 0 && (
+                    <button onClick={startOver} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm p-1 mx-2">
+                        <img src={trash} alt="recycle bin" className="w-5 h-6 mr-1" /> Start Over
+                    </button>
+                )}
+            </div>
+            <HelpDialog isOpen={isModalOpen} onClose={closeModal} />
+        </main>
     );
+
+    return <Layout body={body} />;
 }
