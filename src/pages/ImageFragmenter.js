@@ -300,15 +300,21 @@ export default function ImageFragmenter() {
   const resetImage = () => {
     setOriginalImage(null);
     setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = null;
+    }
   };
 
   const startOver = () => {
     setOriginalImage(null);
-    setImagePreview("");
+    setImagePreview(null);
     setGeneratedFrames([]);
     setPreloadedImages([]);
     setFrameCount(40);
     setOutputDimensions(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = null;
+    }
 
     setStatus("Select an image to start.");
     setIsProcessing(false);
