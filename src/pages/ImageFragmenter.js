@@ -5,6 +5,7 @@ import JSZip from "jszip";
 import GIF from "gif.js";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import applyEffects from "../utils/imageEffects";
 
 import mouse from "../assets/mouse_speed.png";
 import globe from "../assets/internet_connection_wiz-0.png";
@@ -12,116 +13,6 @@ import trash from "../assets/recycle_bin_full-2.png";
 import construction from "../assets/construction.gif";
 import help from "../assets/help_sheet-0.png";
 import HelpDialog from "./HelpDialog";
-
-function applyEffects(ctx, width, height, options) {
-  const { invert, grayscale, sepia, edgeDetect, pixelate } = options;
-
-  // pixelate must be applied first as it replaces the canvas content.
-  if (pixelate > 0) {
-    // turn off image smoothing to get sharp pixels
-    ctx.imageSmoothingEnabled = false;
-
-    // linearly map the slider's 0-95 range to a pixel count.
-    // 0 = full width (no effect), 95 = 5 pixels (max effect).
-    const sliderMax = 100;
-    const minPixels = 5;
-    const pixelsX = Math.round(width - (pixelate / sliderMax) * (width - minPixels));
-    const pixelsY = Math.round((pixelsX * height) / width); // Maintain aspect ratio
-
-    // draw the image scaled down, then scale it back up to create the effect
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = width;
-    tempCanvas.height = height;
-    const tempCtx = tempCanvas.getContext("2d");
-
-    // draw original image scaled down to the new pixel dimensions
-    tempCtx.drawImage(ctx.canvas, 0, 0, pixelsX, pixelsY);
-
-    // clear the main canvas and draw the scaled-down image back up to full size
-    ctx.clearRect(0, 0, width, height);
-    ctx.drawImage(tempCanvas, 0, 0, pixelsX, pixelsY, 0, 0, width, height);
-
-    // restore image smoothing for other operations
-    ctx.imageSmoothingEnabled = true;
-  }
-
-  // if no other effects are enabled, stop
-  if (!invert && !grayscale && !sepia && !edgeDetect) {
-    return;
-  }
-
-  // get pixel data
-  const imageData = ctx.getImageData(0, 0, width, height);
-  const data = imageData.data;
-
-  if (edgeDetect) {
-    const edgeData = edge(data, width, height);
-    data.set(edgeData);
-  }
-
-  // apply filters pixel by pixel
-  for (let i = 0; i < data.length; i += 4) {
-    if (grayscale) {
-      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-      data[i] = avg; // red
-      data[i + 1] = avg; // green
-      data[i + 2] = avg; // blue
-    }
-
-    if (sepia) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      data[i] = Math.min(255, r * 0.393 + g * 0.769 + b * 0.189);
-      data[i + 1] = Math.min(255, r * 0.349 + g * 0.686 + b * 0.168);
-      data[i + 2] = Math.min(255, r * 0.272 + g * 0.534 + b * 0.131);
-    }
-
-    if (invert) {
-      data[i] = 255 - data[i]; // red
-      data[i + 1] = 255 - data[i + 1]; // green
-      data[i + 2] = 255 - data[i + 2]; // blue
-    }
-  }
-
-  // put manipulated data back onto canvas
-  ctx.putImageData(imageData, 0, 0);
-}
-
-function edge(data, width, height) {
-  const output = new Uint8ClampedArray(data.length);
-  const conv = [-1, -1, -1, -1, 8, -1, -1, -1, -1];
-  const halfside = Math.floor(3 / 2);
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let r = 0,
-        g = 0,
-        b = 0;
-      for (let cy = 0; cy < 3; cy++) {
-        for (let cx = 0; cx < 3; cx++) {
-          const scy = y - halfside + cy;
-          const scx = x - halfside + cx;
-
-          if (scy >= 0 && scy < height && scx >= 0 && scx < width) {
-            const src = (scy * width + scx) * 4;
-            const f = cy * 3 + cx;
-            r += data[src] * conv[f];
-            g += data[src + 1] * conv[f];
-            b += data[src + 2] * conv[f];
-          }
-        }
-      }
-
-      const i = (y * width + x) * 4;
-      output[i] = r;
-      output[i + 1] = g;
-      output[i + 2] = b;
-      output[i + 3] = 255;
-    }
-  }
-  return output;
-}
 
 export default function ImageFragmenter() {
   const [originalImage, setOriginalImage] = useState(null);
