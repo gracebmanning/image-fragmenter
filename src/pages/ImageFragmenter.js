@@ -46,6 +46,8 @@ export default function ImageFragmenter() {
     const fileInputRef = useRef(null);
     const canvasRef = useRef(null);
     const playbackTimeoutIdRef = useRef(null);
+    const isCancelledRef = useRef(null);
+    const gifRef = useRef(null);
 
     // FILENAMES
     const zipFilename = `glitch-images.zip`;
@@ -187,6 +189,18 @@ export default function ImageFragmenter() {
     };
 
     const startOver = () => {
+        isCancelledRef.current = true;
+
+        // if (ffmpeg && isDownloading === 'video'){
+        //  ffmpeg.exit();
+        // }
+
+        // if a gif.js worker is running, terminate it
+        if (gifRef.current) {
+            gifRef.current.abort();
+            gifRef.current = null;
+        }
+
         setOriginalImage(null);
         setImagePreview(null);
         setGeneratedFrames([]);
@@ -211,6 +225,7 @@ export default function ImageFragmenter() {
 
     const generateFrames = async () => {
         if (!originalImage) return;
+        isCancelledRef.current = false; // reset cancellation flag
 
         setIsProcessing(true);
         setStatus("Preparing image...");
@@ -283,6 +298,12 @@ export default function ImageFragmenter() {
                 return;
             }
 
+            //abort any previous instance before starting a new one
+            if (gifRef.current) {
+                gifRef.current.abort();
+            }
+
+            isCancelledRef.current = false;
             setIsRenderingGif(true);
             setGifProgress(0);
             setStatus("Rendering GIF...");
@@ -295,14 +316,23 @@ export default function ImageFragmenter() {
                 height: height,
                 workerScript: "/js/gif.worker.js",
             });
+            gifRef.current = gif;
 
             gif.on("progress", (p) => {
+                if (isCancelledRef.current) {
+                    gif.abort();
+                    return reject(new Error("Cancelled"));
+                }
                 const progressPercent = Math.round(p * 100);
                 setGifProgress(progressPercent);
                 setStatus(`Rendering GIF: ${progressPercent}%`);
             });
 
             gif.on("finished", (blob) => {
+                gifRef.current = null; // clear ref once finished
+                if (isCancelledRef.current) {
+                    return reject(new Error("Cancelled"));
+                }
                 setIsRenderingGif(false);
                 setGifProgress(100);
                 setStatus("GIF Rendered!");
@@ -355,36 +385,37 @@ export default function ImageFragmenter() {
     const triggerDownload = async (blob, filename) => {
         const file = new File([blob], filename, { type: blob.type });
 
-        // use Web Share API (if available)
-        if (navigator.share && navigator.canShare({ files: [file] })) {
+        // check for a mobile device
+        const isMobile = /Mobi/i.test(navigator.userAgent) || /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+        // use Web Share API on mobile if available
+        if (isMobile && navigator.share && navigator.canShare({ files: [file] })) {
             try {
                 await navigator.share({
                     files: [file],
-                    title: "my fragmented image",
-                    text: "check out this animation!",
+                    title: "My Fragmented Image",
+                    text: "Check out this animation!",
                 });
                 setStatus("Shared successfully!");
             } catch (error) {
+                // catch if the user cancels the share.
+                // don't need a fallback here because cancelling is intentional.
                 console.log("Share was cancelled or failed", error);
+                setStatus("Share cancelled.");
             }
+            return; // stop execution after sharing
         }
 
-        // iOS/mobile fallback: open in new tab
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        // fallback for all other cases (Desktop browsers, iOS without share, etc.)
+        // standard file download link.
         const url = URL.createObjectURL(blob);
-
-        if (isIOS) {
-            window.open(url, "_blank");
-            URL.revokeObjectURL(url);
-            return;
-        }
-
-        // fallback for desktops
         const a = document.createElement("a");
         a.href = url;
         a.download = filename;
         document.body.appendChild(a);
         a.click();
+
+        // cleanup
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
@@ -410,11 +441,15 @@ export default function ImageFragmenter() {
         setIsDownloading("gif");
         try {
             const finalGifBlob = await generateFinalGifBlob(gifDelay);
-            triggerDownload(finalGifBlob, gifFilename);
-            setStatus("GIF download started!");
+            if (!isCancelledRef.current) {
+                triggerDownload(finalGifBlob, gifFilename);
+                setStatus("GIF download started!");
+            }
         } catch (error) {
-            console.error("Failed to generate GIF:", error);
-            setStatus("Error creating GIF. See console.");
+            if (!isCancelledRef.current) {
+                console.error("Failed to generate GIF:", error);
+                setStatus("Error creating GIF. See console.");
+            }
         }
         setIsDownloading(null);
     };
@@ -425,12 +460,15 @@ export default function ImageFragmenter() {
             return;
         }
 
+        isCancelledRef.current = false;
         setIsDownloading("video");
         setVideoProgress(0);
 
         try {
             setStatus("Rendering GIF for video conversion...");
             const finalGifBlob = await generateFinalGifBlob(gifDelay);
+
+            if (isCancelledRef.current) return;
 
             const files = await ffmpeg.listDir("/");
             if (files.some((file) => file.name === gifFilename)) {
@@ -459,14 +497,18 @@ export default function ImageFragmenter() {
                 videoFilename, // Output file
             ]);
 
+            if (isCancelledRef.current) return;
+
             setStatus("Finalizing video file...");
             const data = await ffmpeg.readFile(videoFilename);
             const videoBlob = new Blob([data], { type: "video/mp4" });
             triggerDownload(videoBlob, videoFilename);
             setStatus("Video download started!");
         } catch (error) {
-            console.error("Error converting GIF to video with FFmpeg:", error);
-            setStatus("Failed to create video. See console.");
+            if (!isCancelledRef.current) {
+                console.error("Error converting GIF to video with FFmpeg:", error);
+                setStatus("Failed to create video. See console.");
+            }
         } finally {
             setIsDownloading(null);
             setVideoProgress(0);
@@ -558,11 +600,11 @@ export default function ImageFragmenter() {
                 </div>
             </div>
             <div className="w-full max-w-md flex flex-row justify-between items-center mt-5">
-                <button onClick={openModal} disabled={allBusy} className="flex flex-row items-center justify-center text-neutral-800 text-sm p-1 mx-2">
+                <button onClick={openModal} className="flex flex-row items-center justify-center text-neutral-800 text-sm p-1 mx-2">
                     <img src={help} alt="paper with question mark" className="h-6 mr-1" /> Help
                 </button>
                 {generatedFrames.length > 0 && (
-                    <button onClick={startOver} disabled={allBusy} className="flex items-center justify-center text-neutral-800 text-sm p-1 mx-2">
+                    <button onClick={startOver} className="flex items-center justify-center text-neutral-800 text-sm p-1 mx-2">
                         <img src={trash} alt="recycle bin" className="w-5 h-6 mr-1" /> Start Over
                     </button>
                 )}
