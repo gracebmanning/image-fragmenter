@@ -54,13 +54,13 @@ export default function HelpDialog({ isOpen, onClose }) {
                             <b>Download Options</b>
                             <ul>
                                 <li>
-                                    <u>ZIP</u>: receive a zip folder of all generated frames to use in your own project.
-                                </li>
-                                <li>
                                     <u>GIF</u>: a gif file of your animation
                                 </li>
                                 <li>
                                     <u>VIDEO</u>: a video (.mp4) file of your gif animation
+                                </li>
+                                <li>
+                                    <u>ZIP</u>: receive a zip folder of all generated frames to use in your own projects.
                                 </li>
                             </ul>
                         </li>
