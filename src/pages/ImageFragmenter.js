@@ -23,6 +23,7 @@ export default function ImageFragmenter() {
     const [generatedFrames, setGeneratedFrames] = useState([]);
     const [preloadedImages, setPreloadedImages] = useState([]);
     const [frameCount, setFrameCount] = useState(40);
+    const [gifDelay, setGifDelay] = useState(100);
     const [outputDimensions, setOutputDimensions] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { effects, ...effectSetters } = useImageEffects();
@@ -33,9 +34,6 @@ export default function ImageFragmenter() {
     const [isDownloading, setIsDownloading] = useState(null); // 'zip','video', 'gif', null
     const [gifProgress, setGifProgress] = useState(0);
     const [videoProgress, setVideoProgress] = useState(0);
-
-    // Interactive GIF State
-    const [gifDelay, setGifDelay] = useState(100);
     const [isRenderingGif, setIsRenderingGif] = useState(false);
 
     // FFmpeg State
