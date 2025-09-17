@@ -64,10 +64,10 @@ if __name__ == "__main__":
 
 This code was converted into JavaScript for quick & easy compatibility in a React app.
 
-## Styling/assets provided by...
+## Thank you to...
 
-| Item                        | Link                                                          |
-| --------------------------- | ------------------------------------------------------------- |
-| Windows 98 Design System    | [98.css](https://jdan.github.io/98.css/)                      |
-| Windows 98 Icons            | [Win98 Icons by Alex Meub](https://win98icons.alexmeub.com/)  |
-| Font: "Perfect DOS VGA 437" | [DaFont.com](https://www.dafont.com/perfect-dos-vga-437.font) |
+| Item                          | Link                                                         |
+| ----------------------------- | ------------------------------------------------------------ |
+| Windows 98 Design System      | [98.css](https://jdan.github.io/98.css/)                     |
+| Windows 98 Icons              | [Win98 Icons by Alex Meub](https://win98icons.alexmeub.com/) |
+| GIF Image Effects Inspiration | [Gifuct-js](https://matt-way.github.io/gifuct-js/)           |
