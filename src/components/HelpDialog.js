@@ -34,7 +34,7 @@ export default function HelpDialog({ isOpen, onClose }) {
                     </div>
                 </div>
                 <div className="window-body text-sm">
-                    <ul className="tree-view">
+                    <ul className="tree-view" style={{ fontFamily: "Arial" }}>
                         <li>
                             <b>How To Use</b>
                             <ul>
