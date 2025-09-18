@@ -401,16 +401,16 @@ export default function ImageFragmenter() {
     const triggerDownload = async (blob, filename) => {
         const file = new File([blob], filename, { type: blob.type });
 
-        // check for a mobile device
-        const isMobile = /Mobi/i.test(navigator.userAgent) || /iPad|iPhone|iPod/.test(navigator.userAgent);
+        // check for iOS devices
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
         // files types that should use the Web Share API on mobile
         const mediaTypesForSharing = ["image/gif", "video/mp4"];
-        const shouldUseShareAPI = isMobile && mediaTypesForSharing.includes(file.type) && navigator.share;
+        const shouldUseShareAPI = isIOS && mediaTypesForSharing.includes(file.type) && navigator.share;
 
         // use Web Share API on mobile if available
         if (shouldUseShareAPI) {
-            // CASE 1: Media on a mobile device
+            // CASE 1: Gif/Video on an iOS device
             try {
                 await navigator.share({
                     files: [file],
@@ -425,7 +425,7 @@ export default function ImageFragmenter() {
                 loadingStateSetters.setStatus("Share cancelled.");
             }
         } else {
-            // CASE 2: GIFs/Videos on Desktop, ZIPs on all devices
+            // CASE 2: GIFs/Videos on Desktop/non-iOS mobile, ZIPs on all devices
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
