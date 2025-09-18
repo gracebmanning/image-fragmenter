@@ -6,7 +6,7 @@ export default function Privacy() {
                 <div className="title-bar">
                     <div className="title-bar-text text-xl font-bold text-white">Privacy Policy</div>
                 </div>
-                <div className="window-body font-sans">
+                <div className="window-body">
                     <p className="text-base font-bold">1. Data Collection and Usage</p>
                     <p className="text-sm ml-4 mt-2">
                         *<u>User-uploaded Images:</u> The "Image Fragmenter" tool is designed to process images directly in your browser. When you upload an image, it is{" "}
