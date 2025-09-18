@@ -65,7 +65,7 @@ export default function Support() {
                             </label>
                             <input
                                 style={shortInputStyle}
-                                className="w-[80%] md:w-[60%] text-sm h-5"
+                                className="w-[80%] md:w-[60%] text-sm h-fit"
                                 type="email"
                                 name="email"
                                 id="email"
@@ -79,20 +79,18 @@ export default function Support() {
                                 Subject:
                             </label>
                             <div className="w-full md:w-[80%] flex flex-col sm:flex-row sm:justify-start justify-center sm:items-center items-start">
-                                <select
-                                    style={shortInputStyle}
-                                    className="text-sm h-5 w-[70%] sm:w-[50%]"
-                                    id="subject"
-                                    name="subject"
-                                    onChange={handleDropdownChange}
-                                    value={formData.subject}
-                                    required
-                                >
-                                    <option value="Report a Problem" className="text-sm h-5">
-                                        Report a Problem
+                                <select className="text-sm h-fit w-[70%] sm:w-[50%]" id="subject" name="subject" onChange={handleDropdownChange} value={formData.subject} required>
+                                    <option value="General Feedback" className="text-sm h-5">
+                                        General Feedback
+                                    </option>
+                                    <option value="Help/Question" className="text-sm h-5">
+                                        Help/Question
                                     </option>
                                     <option value="Request a Feature" className="text-sm h-5">
                                         Request a Feature
+                                    </option>
+                                    <option value="Report a Problem" className="text-sm h-5">
+                                        Report a Problem
                                     </option>
                                     <option value="Other" className="text-sm h-5">
                                         Other
@@ -102,7 +100,7 @@ export default function Support() {
                                 {formData.subject === "Other" && (
                                     <input
                                         style={shortInputStyle}
-                                        className="text-sm h-5 mt-2 sm:mt-0 sm:ml-2 w-[70%] sm:w-[50%]"
+                                        className="text-sm h-fit mt-2 sm:mt-0 sm:ml-2 w-[70%] sm:w-[50%]"
                                         type="text"
                                         name="otherSubject"
                                         placeholder="Please specify"
