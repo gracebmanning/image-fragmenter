@@ -6,19 +6,21 @@ export default function Privacy() {
                 <div className="title-bar">
                     <div className="title-bar-text text-xl font-bold text-white">Privacy Policy</div>
                 </div>
-                <div className="window-body">
+                <div className="window-body" style={{ fontFamily: "Arial" }}>
                     <p className="text-base font-bold">1. Data Collection and Usage</p>
                     <p className="text-sm ml-4 mt-2">
                         *<u>User-uploaded Images:</u> The "Image Fragmenter" tool is designed to process images directly in your browser. When you upload an image, it is{" "}
                         <b>never sent to any servers or stored in any way</b>. All fragmentation and effect generation happen locally on your device.
                     </p>
                     <p className="text-sm ml-4 mt-2">
-                        *<u>No Personal Data:</u> We do not collect, store, or have access to any personal information about you, including your name, email, or IP address.
+                        *<u>Support Form Submissions:</u> When you use our Support form, we collect your name, email, and the content of your message. This personal data is used solely to respond to
+                        your inquiry. Form submissions are handled and stored by Netlify, a third-party service, to facilitate this process. This information is <b>not</b> used for any other purpose
+                        or sold to third parties.
                     </p>
                     <p className="text-base font-bold mt-4">2. Data Security</p>
                     <p className="text-sm ml-4 mt-2">
-                        *Because all image processing is done client-side (in your browser), your images are not at risk of being intercepted or stored by our service. Your data remains private and
-                        secure on your device.
+                        *Because all image processing is done client-side (in your browser), your images are not at risk of being intercepted or stored by our service.{" "}
+                        <b>Your data remains private and secure on your device.</b>
                     </p>
                     <p className="text-base font-bold mt-4">3. Site Analytics</p>
                     <p className="text-sm ml-4 mt-2">*This site uses Netlify Analytics, a privacy-friendly service, to understand how our website is used.</p>
