@@ -12,7 +12,7 @@ export default function SupportThankYou() {
                 <div className="window-body text-sm">
                     <p>We have received your response. Thank you!</p>
                 </div>
-                <div class="status-bar">
+                <div className="status-bar">
                     <Link to="/support" className="status-bar-field flex flex-row justify-start items-center text-sm">
                         <IoArrowBackOutline />
                         back

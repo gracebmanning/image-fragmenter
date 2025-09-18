@@ -1,5 +1,6 @@
 import Layout from "../layouts/layout";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const shortInputStyle = {
     padding: "14px 10px",
@@ -12,6 +13,7 @@ const textAreaStyle = {
 };
 
 export default function Support() {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -34,6 +36,20 @@ export default function Support() {
         });
     };
 
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            await fetch("/", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams(formData).toString(),
+            });
+            navigate("/support/thank-you");
+        } catch (error) {
+            console.error("Form submission error:", error);
+        }
+    };
+
     const body = (
         <main className="w-full bg-neutral-400 flex flex-col flex-grow items-center justify-center p-4">
             <div className="window w-full max-w-md p-6 md:p-8 space-y-6">
@@ -41,7 +57,7 @@ export default function Support() {
                     <div className="title-bar-text text-xl font-bold text-white">Support Form</div>
                 </div>
                 <div className="window-body">
-                    <form className="w-full max-w-md flex flex-col justify-center items-start text-base" name="support" method="POST" data-netlify="true" action="/support/thank-you">
+                    <form className="w-full max-w-md flex flex-col justify-center items-start text-base" name="support" method="POST" onSubmit={handleSubmit} data-netlify="true">
                         {/* Hidden input for Netlify to detect the form */}
                         <input type="hidden" name="form-name" value="support" />
                         <div className="w-full mb-4 flex flex-col justify-center items-start">
