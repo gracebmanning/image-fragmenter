@@ -15,7 +15,7 @@ export default function Support() {
     const [formData, setFormData] = useState({
         name: "",
         email: "",
-        subject: "Report a Problem", // default value
+        subject: "",
         otherSubject: "",
         message: "",
     });
@@ -80,6 +80,7 @@ export default function Support() {
                             </label>
                             <div className="w-full md:w-[80%] flex flex-col sm:flex-row sm:justify-start justify-center sm:items-center items-start">
                                 <select className="text-sm h-fit w-[70%] sm:w-[50%]" id="subject" name="subject" onChange={handleDropdownChange} value={formData.subject} required>
+                                    <option value="" className="text-sm h-5 text-neutral-600" disabled></option>
                                     <option value="General Feedback" className="text-sm h-5">
                                         General Feedback
                                     </option>
