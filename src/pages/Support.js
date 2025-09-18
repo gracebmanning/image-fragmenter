@@ -41,7 +41,7 @@ export default function Support() {
                     <div className="title-bar-text text-xl font-bold text-white">Support Form</div>
                 </div>
                 <div className="window-body">
-                    <form className="w-full max-w-md flex flex-col justify-center items-start text-base" name="support" method="POST" data-netlify="true">
+                    <form className="w-full max-w-md flex flex-col justify-center items-start text-base" name="support" method="POST" data-netlify="true" action="/support/thank-you">
                         {/* Hidden input for Netlify to detect the form */}
                         <input type="hidden" name="form-name" value="support" />
                         <div className="w-full mb-4 flex flex-col justify-center items-start">
