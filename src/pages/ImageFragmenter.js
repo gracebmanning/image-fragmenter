@@ -601,15 +601,15 @@ export default function ImageFragmenter() {
                             <p className="text-neutral-800 text-sm">Preview:</p>
                             <canvas ref={canvasRef} className="max-w-[80%] max-h-[350px] rounded-sm border-2 border-black" />
                             <div className="field-row-stacked w-[90%]">
-                                <label htmlFor="delaySlider" className="text-sm font-medium text-neutral-800">
+                                <label htmlFor="delaySlider" className="text-sm font-medium" style={allBusy ? { color: "#808080", textShadow: "1px 1px 0 #ffffff" } : { color: "text-neutral-800" }}>
                                     Delay: {gifDelay}ms
                                 </label>
                                 <div className="field-row w-full">
-                                    <label htmlFor="range0" className="text-xs">
+                                    <label htmlFor="range0" className="text-xs" style={allBusy ? { color: "#808080", textShadow: "1px 1px 0 #ffffff" } : { color: "text-neutral-800" }}>
                                         10ms
                                     </label>
                                     <input id="delaySlider" type="range" min="10" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={allBusy} />
-                                    <label htmlFor="range100" className="text-xs">
+                                    <label htmlFor="range100" className="text-xs" style={allBusy ? { color: "#808080", textShadow: "1px 1px 0 #ffffff" } : { color: "text-neutral-800" }}>
                                         1000ms
                                     </label>
                                 </div>
