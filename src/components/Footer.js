@@ -32,6 +32,10 @@ export default function Footer() {
                     Support
                 </Link>
                 *
+                <a className="underline mx-2" href="https://github.com/gracebmanning/image-fragmenter" target="_blank" rel="noreferrer">
+                    GitHub
+                </a>
+                *
             </div>
             <img src={globe} alt="earth globe with mouse pointer" className="w-6 h-6" />
         </footer>
