@@ -6,6 +6,7 @@ import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
 import { useImageEffects } from "../hooks/useImageEffects";
+import { useLoadingStates } from "../hooks/useLoadingStates";
 
 import mouse from "../assets/mouse_speed.png";
 import trash from "../assets/recycle_bin_full-2.png";
@@ -16,6 +17,8 @@ import EffectControls from "../components/EffectControls";
 import DownloadPanel from "../components/DownloadPanel";
 import ProgressBar from "../components/ProgressBar";
 import Layout from "../layouts/layout";
+import DelaySlider from "../components/DelaySlider";
+import FrameCountField from "../components/FrameCountField";
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
@@ -27,14 +30,7 @@ export default function ImageFragmenter() {
     const [outputDimensions, setOutputDimensions] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { effects, ...effectSetters } = useImageEffects();
-
-    // Status and Loading State
-    const [status, setStatus] = useState("Select an image to start.");
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(null); // 'zip','video', 'gif', null
-    const [gifProgress, setGifProgress] = useState(0);
-    const [videoProgress, setVideoProgress] = useState(0);
-    const [isRenderingGif, setIsRenderingGif] = useState(false);
+    const { loadingStates, ...loadingStateSetters } = useLoadingStates();
 
     // FFmpeg State
     const [ffmpeg, setFfmpeg] = useState(null);
@@ -53,7 +49,7 @@ export default function ImageFragmenter() {
     const gifFilename = `animation_${gifDelay}ms.gif`;
     const videoFilename = `animation_${gifDelay}ms.mp4`;
 
-    const allBusy = isProcessing || isDownloading || isRenderingGif;
+    const allBusy = loadingStates.isProcessing || loadingStates.isDownloading || loadingStates.isRenderingGif;
 
     useEffect(() => {
         const loadFfmpeg = async () => {
@@ -170,7 +166,7 @@ export default function ImageFragmenter() {
         const file = event.target.files[0];
         if (!file) return;
         if (!["image/png", "image/jpeg"].includes(file.type)) {
-            setStatus("Unsupported file type.");
+            loadingStateSetters.setStatus("Unsupported file type.");
             return;
         }
         const reader = new FileReader();
@@ -179,7 +175,7 @@ export default function ImageFragmenter() {
             img.onload = () => {
                 setOriginalImage(img);
                 setImagePreview(e.target.result);
-                setStatus("Image loaded. Ready to generate.");
+                loadingStateSetters.setStatus("Image loaded. Ready to generate.");
                 setGeneratedFrames([]);
             };
             img.src = e.target.result;
@@ -223,14 +219,14 @@ export default function ImageFragmenter() {
             fileInputRef.current.value = null;
         }
 
-        setStatus("Select an image to start.");
-        setIsProcessing(false);
-        setIsDownloading(null);
-        setGifProgress(0);
-        setVideoProgress(0);
+        loadingStateSetters.setStatus("Select an image to start.");
+        loadingStateSetters.setIsProcessing(false);
+        loadingStateSetters.setIsDownloading(null);
+        loadingStateSetters.setGifProgress(0);
+        loadingStateSetters.setVideoProgress(0);
 
         setGifDelay(100);
-        setIsRenderingGif(false);
+        loadingStateSetters.setIsRenderingGif(false);
 
         effectSetters.resetEffects();
     };
@@ -239,8 +235,8 @@ export default function ImageFragmenter() {
         if (!originalImage) return;
         isCancelledRef.current = false; // reset cancellation flag
 
-        setIsProcessing(true);
-        setStatus("Preparing image...");
+        loadingStateSetters.setIsProcessing(true);
+        loadingStateSetters.setStatus("Preparing image...");
 
         const maxWidth = 1920;
         const maxHeight = 1080;
@@ -249,7 +245,7 @@ export default function ImageFragmenter() {
         let finalHeight = originalImage.height;
 
         if (originalImage.width > maxWidth || originalImage.height > maxHeight) {
-            setStatus("Image is large, scaling for compatibility...");
+            loadingStateSetters.setStatus("Image is large, scaling for compatibility...");
             const scaleFactor = Math.min(maxWidth / originalImage.width, maxHeight / originalImage.height);
             finalWidth = Math.floor(originalImage.width * scaleFactor);
             finalHeight = Math.floor(originalImage.height * scaleFactor);
@@ -295,12 +291,12 @@ export default function ImageFragmenter() {
             ctx.drawImage(cropCanvas, pasteX, pasteY);
 
             frames.push(await getCanvasBlob(canvas));
-            setStatus(`Generating frame ${i + 1} of ${frameCount}...`);
+            loadingStateSetters.setStatus(`Generating frame ${i + 1} of ${frameCount}...`);
         }
 
         setGeneratedFrames(frames);
-        setIsProcessing(false);
-        setStatus("Preview ready. Adjust settings and download your art!");
+        loadingStateSetters.setIsProcessing(false);
+        loadingStateSetters.setStatus("Preview ready. Adjust settings and download your art!");
     };
 
     const generateFinalGifBlob = (delay) => {
@@ -323,9 +319,9 @@ export default function ImageFragmenter() {
             }
 
             isCancelledRef.current = false;
-            setIsRenderingGif(true);
-            setGifProgress(0);
-            setStatus("Rendering GIF...");
+            loadingStateSetters.setIsRenderingGif(true);
+            loadingStateSetters.setGifProgress(0);
+            loadingStateSetters.setStatus("Rendering GIF...");
 
             const { width, height } = outputDimensions;
             const gif = new GIF({
@@ -343,8 +339,8 @@ export default function ImageFragmenter() {
                     return reject(new Error("Cancelled"));
                 }
                 const progressPercent = Math.round(p * 100);
-                setGifProgress(progressPercent);
-                setStatus(`Rendering GIF: ${progressPercent}%`);
+                loadingStateSetters.setGifProgress(progressPercent);
+                loadingStateSetters.setStatus(`Rendering GIF: ${progressPercent}%`);
             });
 
             gif.on("finished", (blob) => {
@@ -353,9 +349,9 @@ export default function ImageFragmenter() {
                 if (isCancelledRef.current) {
                     return reject(new Error("Cancelled"));
                 }
-                setIsRenderingGif(false);
-                setGifProgress(100);
-                setStatus("GIF Rendered!");
+                loadingStateSetters.setIsRenderingGif(false);
+                loadingStateSetters.setGifProgress(100);
+                loadingStateSetters.setStatus("GIF Rendered!");
                 resolve(blob);
             });
 
@@ -416,12 +412,12 @@ export default function ImageFragmenter() {
                     title: "My Fragmented Image",
                     text: "Check out this animation!",
                 });
-                setStatus("Shared successfully!");
+                loadingStateSetters.setStatus("Shared successfully!");
             } catch (error) {
                 // catch if the user cancels the share.
                 // don't need a fallback here because cancelling is intentional.
                 console.log("Share was cancelled or failed", error);
-                setStatus("Share cancelled.");
+                loadingStateSetters.setStatus("Share cancelled.");
             }
             return; // stop execution after sharing
         }
@@ -445,47 +441,47 @@ export default function ImageFragmenter() {
             alert("JSZip library not loaded yet. Please wait.");
             return;
         }
-        setIsDownloading("zip");
-        setStatus("Creating ZIP file...");
+        loadingStateSetters.setIsDownloading("zip");
+        loadingStateSetters.setStatus("Creating ZIP file...");
         const zip = new JSZip();
         generatedFrames.forEach((blob, i) => {
             zip.file(`frame_${String(i).padStart(4, "0")}.jpg`, blob);
         });
         const zipBlob = await zip.generateAsync({ type: "blob" });
         triggerDownload(zipBlob, zipFilename);
-        setStatus("ZIP download started!");
-        setIsDownloading(null);
+        loadingStateSetters.setStatus("ZIP download started!");
+        loadingStateSetters.setIsDownloading(null);
     };
 
     const downloadGif = async () => {
-        setIsDownloading("gif");
+        loadingStateSetters.setIsDownloading("gif");
         try {
             const finalGifBlob = await generateFinalGifBlob(gifDelay);
             if (!isCancelledRef.current) {
                 triggerDownload(finalGifBlob, gifFilename);
-                setStatus("GIF download started!");
+                loadingStateSetters.setStatus("GIF download started!");
             }
         } catch (error) {
             if (!isCancelledRef.current) {
                 console.error("Failed to generate GIF:", error);
-                setStatus("Error creating GIF. See console.");
+                loadingStateSetters.setStatus("Error creating GIF. See console.");
             }
         }
-        setIsDownloading(null);
+        loadingStateSetters.setIsDownloading(null);
     };
 
     const downloadVideo = async () => {
         if (!ffmpegRead || !ffmpeg) {
-            setStatus("FFmpeg is not loaded yet. Please wait.");
+            loadingStateSetters.setStatus("FFmpeg is not loaded yet. Please wait.");
             return;
         }
 
         isCancelledRef.current = false;
-        setIsDownloading("video");
-        setVideoProgress(0);
+        loadingStateSetters.setIsDownloading("video");
+        loadingStateSetters.setVideoProgress(0);
 
         try {
-            setStatus("Rendering GIF for video conversion...");
+            loadingStateSetters.setStatus("Rendering GIF for video conversion...");
             const finalGifBlob = await generateFinalGifBlob(gifDelay);
 
             if (isCancelledRef.current) return;
@@ -500,9 +496,9 @@ export default function ImageFragmenter() {
 
             await ffmpeg.writeFile(gifFilename, await fetchFile(finalGifBlob));
 
-            setStatus("Converting GIF to MP4...");
+            loadingStateSetters.setStatus("Converting GIF to MP4...");
             ffmpeg.on("progress", ({ progress }) => {
-                setVideoProgress(Math.min(100, Math.round(progress * 100)));
+                loadingStateSetters.setVideoProgress(Math.min(100, Math.round(progress * 100)));
             });
 
             await ffmpeg.exec([
@@ -519,19 +515,19 @@ export default function ImageFragmenter() {
 
             if (isCancelledRef.current) return;
 
-            setStatus("Finalizing video file...");
+            loadingStateSetters.setStatus("Finalizing video file...");
             const data = await ffmpeg.readFile(videoFilename);
             const videoBlob = new Blob([data], { type: "video/mp4" });
             triggerDownload(videoBlob, videoFilename);
-            setStatus("Video download started!");
+            loadingStateSetters.setStatus("Video download started!");
         } catch (error) {
             if (!isCancelledRef.current) {
                 console.error("Error converting GIF to video with FFmpeg:", error);
-                setStatus("Failed to create video. See console.");
+                loadingStateSetters.setStatus("Failed to create video. See console.");
             }
         } finally {
-            setIsDownloading(null);
-            setVideoProgress(0);
+            loadingStateSetters.setIsDownloading(null);
+            loadingStateSetters.setVideoProgress(0);
 
             try {
                 const finalFiles = await ffmpeg.listDir("/");
@@ -576,53 +572,28 @@ export default function ImageFragmenter() {
 
                     {originalImage && generatedFrames.length === 0 && (
                         <>
-                            <div className="field-row mt-4">
-                                <label htmlFor="frameCount" className="text-sm font-medium text-neutral-800">
-                                    Frames
-                                </label>
-                                <input
-                                    id="frameCount"
-                                    type="number"
-                                    value={frameCount}
-                                    onChange={(e) => setFrameCount(Number(e.target.value))}
-                                    className="text-neutral-700 text-xs"
-                                    disabled={allBusy}
-                                />
-                            </div>
+                            <FrameCountField frameCount={frameCount} setFrameCount={setFrameCount} disabled={allBusy} />
                             <button onClick={generateFrames} disabled={allBusy} className="w-full mt-4 p-2 text-sm flex items-center justify-center disabled:cursor-not-allowed">
-                                {(isProcessing || isRenderingGif) && <TbBolt className="w-5 h-5 mr-2 animate-pulse" />}
-                                {isProcessing ? "Generating..." : isRenderingGif ? "Rendering..." : "Generate Art"}
+                                {(loadingStates.isProcessing || loadingStates.isRenderingGif) && <TbBolt className="w-5 h-5 mr-2 animate-pulse" />}
+                                {loadingStates.isProcessing ? "Generating..." : loadingStates.isRenderingGif ? "Rendering..." : "Generate Art"}
                             </button>
                         </>
                     )}
 
-                    {generatedFrames.length > 0 && !isProcessing && (
+                    {generatedFrames.length > 0 && !loadingStates.isProcessing && (
                         <div className="w-full flex flex-col justify-center items-center space-y-4">
                             <p className="text-neutral-800 text-sm">Preview:</p>
                             <canvas ref={canvasRef} className="max-w-[80%] max-h-[350px] rounded-sm border-2 border-black" />
-                            <div className="field-row-stacked w-[90%]">
-                                <label htmlFor="delaySlider" className="text-sm font-medium" style={allBusy ? { color: "#808080", textShadow: "1px 1px 0 #ffffff" } : { color: "text-neutral-800" }}>
-                                    Delay: {gifDelay}ms
-                                </label>
-                                <div className="field-row w-full">
-                                    <label htmlFor="range0" className="text-xs" style={allBusy ? { color: "#808080", textShadow: "1px 1px 0 #ffffff" } : { color: "text-neutral-800" }}>
-                                        10ms
-                                    </label>
-                                    <input id="delaySlider" type="range" min="10" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={allBusy} />
-                                    <label htmlFor="range100" className="text-xs" style={allBusy ? { color: "#808080", textShadow: "1px 1px 0 #ffffff" } : { color: "text-neutral-800" }}>
-                                        1000ms
-                                    </label>
-                                </div>
-                            </div>
+                            <DelaySlider gifDelay={gifDelay} setGifDelay={setGifDelay} disabled={allBusy} />
                             <EffectControls effects={effects} setters={effectSetters} disabled={allBusy} />
                         </div>
                     )}
 
-                    <div className="text-center text-base text-neutral-800 min-h-5 m-5">{status}</div>
+                    <div className="text-center text-base text-neutral-800 min-h-5 m-5">{loadingStates.status}</div>
 
-                    {isDownloading === "gif" && <ProgressBar type="gif" gifProgress={gifProgress} videoProgress={videoProgress} />}
+                    {loadingStates.isDownloading === "gif" && <ProgressBar type="gif" gifProgress={loadingStates.gifProgress} videoProgress={loadingStates.videoProgress} />}
 
-                    {isDownloading === "video" && <ProgressBar type="video" gifProgress={gifProgress} videoProgress={videoProgress} />}
+                    {loadingStates.isDownloading === "video" && <ProgressBar type="video" gifProgress={loadingStates.gifProgress} videoProgress={loadingStates.videoProgress} />}
 
                     {generatedFrames.length > 0 && <DownloadPanel downloadFunctions={{ downloadZip, downloadGif, downloadVideo }} allBusy={allBusy} />}
                 </div>
