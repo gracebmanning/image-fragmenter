@@ -404,8 +404,13 @@ export default function ImageFragmenter() {
         // check for a mobile device
         const isMobile = /Mobi/i.test(navigator.userAgent) || /iPad|iPhone|iPod/.test(navigator.userAgent);
 
+        // files types that should use the Web Share API on mobile
+        const mediaTypesForSharing = ["image/gif", "video/mp4"];
+        const shouldUseShareAPI = isMobile && mediaTypesForSharing.includes(file.type) && navigator.share;
+
         // use Web Share API on mobile if available
-        if (isMobile && navigator.share && navigator.canShare({ files: [file] })) {
+        if (shouldUseShareAPI) {
+            // CASE 1: Media on a mobile device
             try {
                 await navigator.share({
                     files: [file],
@@ -419,21 +424,19 @@ export default function ImageFragmenter() {
                 console.log("Share was cancelled or failed", error);
                 loadingStateSetters.setStatus("Share cancelled.");
             }
-            return; // stop execution after sharing
+        } else {
+            // CASE 2: GIFs/Videos on Desktop, ZIPs on all devices
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+
+            // cleanup
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
-
-        // fallback for all other cases (Desktop browsers, iOS without share, etc.)
-        // standard file download link.
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-
-        // cleanup
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
     };
 
     const downloadZip = async () => {
