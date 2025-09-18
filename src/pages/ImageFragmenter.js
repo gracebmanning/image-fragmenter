@@ -46,6 +46,7 @@ export default function ImageFragmenter() {
     const playbackTimeoutIdRef = useRef(null);
     const isCancelledRef = useRef(null);
     const gifRef = useRef(null);
+    const gifCacheRef = useRef(null);
 
     // FILENAMES
     const zipFilename = `glitch-images.zip`;
@@ -67,6 +68,14 @@ export default function ImageFragmenter() {
         };
         loadFfmpeg();
     }, []);
+
+    // clear cache and revoke existing URLs if settings change
+    useEffect(() => {
+        console.log("in use effect");
+        if (gifCacheRef.current) {
+            gifCacheRef.current = null;
+        }
+    }, [gifDelay, effects.edgeDetect, effects.grayscale, effects.invert, effects.pixelate, effects.seamless, effects.sepia]);
 
     // preload images once when frames are generated
     useEffect(() => {
@@ -199,6 +208,11 @@ export default function ImageFragmenter() {
             gifRef.current = null;
         }
 
+        // reset cache
+        if (gifCacheRef.current) {
+            gifCacheRef.current = null;
+        }
+
         setOriginalImage(null);
         setImagePreview(null);
         setGeneratedFrames([]);
@@ -301,6 +315,13 @@ export default function ImageFragmenter() {
                 gifRef.current.abort();
             }
 
+            // check for cached gif
+            if (gifCacheRef.current) {
+                console.log("cached gif:", gifCacheRef);
+                resolve(gifCacheRef.current);
+                return;
+            }
+
             isCancelledRef.current = false;
             setIsRenderingGif(true);
             setGifProgress(0);
@@ -328,6 +349,7 @@ export default function ImageFragmenter() {
 
             gif.on("finished", (blob) => {
                 gifRef.current = null; // clear ref once finished
+                gifCacheRef.current = blob; // cache the generated gif
                 if (isCancelledRef.current) {
                     return reject(new Error("Cancelled"));
                 }
