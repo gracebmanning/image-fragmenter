@@ -44,7 +44,13 @@ export default function EffectControls({ effects, setters, disabled }) {
                     <label htmlFor="pixelateSlider" className="text-sm font-medium text-neutral-800">
                         Pixelate
                     </label>
+                    <label htmlFor="range0" className="text-xs">
+                        0%
+                    </label>
                     <input id="pixelateSlider" type="range" min="0" max="100" step="1" value={pixelate} onChange={(e) => setPixelate(Number(e.target.value))} disabled={disabled} />
+                    <label htmlFor="range100" className="text-xs">
+                        100%
+                    </label>
                 </div>
             </div>
         </>

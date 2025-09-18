@@ -582,7 +582,15 @@ export default function ImageFragmenter() {
                                 <label htmlFor="delaySlider" className="text-sm font-medium text-neutral-800">
                                     Delay: {gifDelay}ms
                                 </label>
-                                <input id="delaySlider" type="range" min="10" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={allBusy} />
+                                <div className="field-row w-full">
+                                    <label htmlFor="range0" className="text-xs">
+                                        10ms
+                                    </label>
+                                    <input id="delaySlider" type="range" min="10" max="1000" step="10" value={gifDelay} onChange={(e) => setGifDelay(Number(e.target.value))} disabled={allBusy} />
+                                    <label htmlFor="range100" className="text-xs">
+                                        1000ms
+                                    </label>
+                                </div>
                             </div>
                             <EffectControls effects={effects} setters={effectSetters} disabled={allBusy} />
                         </div>
