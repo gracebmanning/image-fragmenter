@@ -1,3 +1,7 @@
+const disabledStyle = { color: "#808080", textShadow: "1px 1px 0 #ffffff" };
+
+const activeStyle = { color: "#262626", textShadow: "none" };
+
 export default function EffectControls({ effects, setters, disabled }) {
     const { seamless, invert, grayscale, sepia, edgeDetect, pixelate } = effects;
     const { setSeamless, setInvert, setGrayscale, setSepia, setEdgeDetect, setPixelate } = setters;
@@ -41,14 +45,14 @@ export default function EffectControls({ effects, setters, disabled }) {
                     </label>
                 </div>
                 <div className="field-row w-[60%]">
-                    <label htmlFor="pixelateSlider" className="text-sm font-medium" style={disabled ? { color: "#808080", textShadow: "1px 1px 0 #ffffff" } : { color: "text-neutral-800" }}>
+                    <label htmlFor="pixelateSlider" className="text-sm font-medium" style={disabled ? disabledStyle : activeStyle}>
                         Pixelate
                     </label>
-                    <label htmlFor="range0" className="text-xs" style={disabled ? { color: "#808080", textShadow: "1px 1px 0 #ffffff" } : { color: "text-neutral-800" }}>
+                    <label htmlFor="range0" className="text-xs" style={disabled ? disabledStyle : activeStyle}>
                         0%
                     </label>
                     <input id="pixelateSlider" type="range" min="0" max="100" step="1" value={pixelate} onChange={(e) => setPixelate(Number(e.target.value))} disabled={disabled} />
-                    <label htmlFor="range100" className="text-xs" style={disabled ? { color: "#808080", textShadow: "1px 1px 0 #ffffff" } : { color: "text-neutral-800" }}>
+                    <label htmlFor="range100" className="text-xs" style={disabled ? disabledStyle : activeStyle}>
                         100%
                     </label>
                 </div>
