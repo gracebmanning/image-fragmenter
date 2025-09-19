@@ -23,7 +23,7 @@
   },
   "scripts": {
     "start": "craco start",
-    "build": "craco build && node sitemap-builder.js",
+    "build": "craco build",
     "test": "craco test",
     "eject": "react-scripts eject"
   },
