@@ -445,11 +445,31 @@ export default function ImageFragmenter() {
             return;
         }
         loadingStateSetters.setIsDownloading("zip");
-        loadingStateSetters.setStatus("Creating ZIP file...");
+        loadingStateSetters.setStatus("Applying effects and creating ZIP...");
         const zip = new JSZip();
-        generatedFrames.forEach((blob, i) => {
-            zip.file(`frame_${String(i).padStart(4, "0")}.jpg`, blob);
-        });
+
+        // create temporary canvas to apply effects
+        const { width, height } = outputDimensions;
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+
+        // use preloadedImages as they are already decoded and ready to draw
+        for (let i = 0; i < preloadedImages.length; i++) {
+            const img = preloadedImages[i];
+
+            tempCtx.clearRect(0, 0, width, height);
+            tempCtx.drawImage(img, 0, 0, width, height);
+
+            applyEffects(tempCtx, width, height, effects);
+
+            const newBlob = await new Promise((resolve) => tempCanvas.toBlob(resolve, "image/jpeg", 0.9));
+
+            zip.file(`frame_${String(i).padStart(4, "0")}.jpg`, newBlob);
+        }
+
+        loadingStateSetters.setStatus("Generating ZIP file...");
         const zipBlob = await zip.generateAsync({ type: "blob" });
         triggerDownload(zipBlob, zipFilename);
         loadingStateSetters.setStatus("ZIP download started!");
