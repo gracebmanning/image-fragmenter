@@ -1,17 +1,21 @@
 import { useEffect, useState, useRef } from "react";
-import { TbBolt, TbTrash } from "react-icons/tb";
-import JSZip from "jszip";
-import GIF from "gif.js";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
 import { useImageEffects } from "../hooks/useImageEffects";
 import { useLoadingStates } from "../hooks/useLoadingStates";
+import { useDownloader } from "../hooks/useDownloader";
+import { useFrameGenerator } from "../hooks/useFrameGenerator";
 
+// UTILITY
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { toBlobURL } from "@ffmpeg/util";
+
+// ICONS
 import mouse from "../assets/mouse_speed.png";
 import trash from "../assets/recycle_bin_full-2.png";
 import help from "../assets/help_sheet-0.png";
+import { TbBolt, TbTrash } from "react-icons/tb";
 
+// UI COMPONENTS
 import HelpDialog from "../components/HelpDialog";
 import EffectControls from "../components/EffectControls";
 import DownloadPanel from "../components/DownloadPanel";
@@ -23,14 +27,11 @@ import FrameCountField from "../components/FrameCountField";
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
     const [imagePreview, setImagePreview] = useState("");
-    const [generatedFrames, setGeneratedFrames] = useState([]);
     const [preloadedImages, setPreloadedImages] = useState([]);
     const [frameCount, setFrameCount] = useState(40);
     const [gifDelay, setGifDelay] = useState(100);
     const [outputDimensions, setOutputDimensions] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const { effects, ...effectSetters } = useImageEffects();
-    const { loadingStates, ...loadingStateSetters } = useLoadingStates();
 
     // FFmpeg State
     const [ffmpeg, setFfmpeg] = useState(null);
@@ -44,10 +45,29 @@ export default function ImageFragmenter() {
     const gifRef = useRef(null);
     const gifCacheRef = useRef(null);
 
-    // FILENAMES
-    const zipFilename = `glitch-images.zip`;
-    const gifFilename = `animation_${gifDelay}ms.gif`;
-    const videoFilename = `animation_${gifDelay}ms.mp4`;
+    // Hooks
+    const { effects, ...effectSetters } = useImageEffects();
+    const { loadingStates, ...loadingStateSetters } = useLoadingStates();
+    const { generatedFrames, setGeneratedFrames, generateFrames, generateFinalGifBlob } = useFrameGenerator({
+        isCancelledRef,
+        gifRef,
+        gifCacheRef,
+        loadingStateSetters,
+        effects,
+        outputDimensions,
+        setOutputDimensions,
+    });
+    const { handleDownload } = useDownloader({
+        preloadedImages,
+        outputDimensions,
+        effects,
+        gifDelay,
+        generateFinalGifBlob,
+        ffmpeg,
+        ffmpegRead,
+        isCancelledRef,
+        loadingStateSetters,
+    });
 
     const allBusy = loadingStates.isProcessing || loadingStates.isDownloading || loadingStates.isRenderingGif;
 
@@ -67,7 +87,6 @@ export default function ImageFragmenter() {
 
     // clear cache and revoke existing URLs if settings change
     useEffect(() => {
-        console.log("in use effect");
         if (gifCacheRef.current) {
             gifCacheRef.current = null;
         }
@@ -231,341 +250,6 @@ export default function ImageFragmenter() {
         effectSetters.resetEffects();
     };
 
-    const generateFrames = async () => {
-        if (!originalImage) return;
-        isCancelledRef.current = false; // reset cancellation flag
-
-        loadingStateSetters.setIsProcessing(true);
-        loadingStateSetters.setStatus("Preparing image...");
-
-        const maxWidth = 1920;
-        const maxHeight = 1080;
-        let imageToProcess = originalImage;
-        let finalWidth = originalImage.width;
-        let finalHeight = originalImage.height;
-
-        if (originalImage.width > maxWidth || originalImage.height > maxHeight) {
-            loadingStateSetters.setStatus("Image is large, scaling for compatibility...");
-            const scaleFactor = Math.min(maxWidth / originalImage.width, maxHeight / originalImage.height);
-            finalWidth = Math.floor(originalImage.width * scaleFactor);
-            finalHeight = Math.floor(originalImage.height * scaleFactor);
-
-            const scalingCanvas = document.createElement("canvas");
-            scalingCanvas.width = finalWidth;
-            scalingCanvas.height = finalHeight;
-            const scalingCtx = scalingCanvas.getContext("2d", { willReadFrequently: true });
-            scalingCtx.drawImage(originalImage, 0, 0, finalWidth, finalHeight);
-            imageToProcess = scalingCanvas;
-        }
-
-        // H264 only supports even sized frames
-        if (finalWidth % 2 !== 0) finalWidth--;
-        if (finalHeight % 2 !== 0) finalHeight--;
-
-        const newOutputDimensions = { width: finalWidth, height: finalHeight };
-        setOutputDimensions(newOutputDimensions);
-
-        const frames = [];
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        canvas.width = finalWidth;
-        canvas.height = finalHeight;
-        ctx.drawImage(imageToProcess, 0, 0);
-
-        frames.push(await getCanvasBlob(canvas));
-
-        for (let i = 0; i < frameCount; i++) {
-            const cropWidth = Math.floor(Math.random() * canvas.width) + 1;
-            const cropHeight = Math.floor(Math.random() * canvas.height) + 1;
-
-            const left = Math.floor(Math.random() * (canvas.width - cropWidth + 1));
-            const top = Math.floor(Math.random() * canvas.height - cropHeight + 1);
-
-            const cropCanvas = document.createElement("canvas");
-            cropCanvas.width = cropWidth;
-            cropCanvas.height = cropHeight;
-            cropCanvas.getContext("2d", { willReadFrequently: true }).drawImage(imageToProcess, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-
-            const pasteX = Math.floor(Math.random() * (canvas.width - cropWidth + 1));
-            const pasteY = Math.floor(Math.random() * (canvas.height - cropHeight + 1));
-            ctx.drawImage(cropCanvas, pasteX, pasteY);
-
-            frames.push(await getCanvasBlob(canvas));
-            loadingStateSetters.setStatus(`Generating frame ${i + 1} of ${frameCount}...`);
-        }
-
-        setGeneratedFrames(frames);
-        loadingStateSetters.setIsProcessing(false);
-        loadingStateSetters.setStatus("Preview ready. Adjust settings and download your art!");
-    };
-
-    const generateFinalGifBlob = (delay) => {
-        return new Promise(async (resolve, reject) => {
-            if (generatedFrames.length === 0) {
-                reject(new Error("No frames to render."));
-                return;
-            }
-
-            //abort any previous instance before starting a new one
-            if (gifRef.current) {
-                gifRef.current.abort();
-            }
-
-            // check for cached gif
-            if (gifCacheRef.current) {
-                console.log("cached gif:", gifCacheRef);
-                resolve(gifCacheRef.current);
-                return;
-            }
-
-            isCancelledRef.current = false;
-            loadingStateSetters.setIsRenderingGif(true);
-            loadingStateSetters.setGifProgress(0);
-            loadingStateSetters.setStatus("Rendering GIF...");
-
-            const { width, height } = outputDimensions;
-            const gif = new GIF({
-                workers: 4,
-                quality: 10,
-                width: width,
-                height: height,
-                workerScript: "/js/gif.worker.js",
-            });
-            gifRef.current = gif;
-
-            gif.on("progress", (p) => {
-                if (isCancelledRef.current) {
-                    gif.abort();
-                    return reject(new Error("Cancelled"));
-                }
-                const progressPercent = Math.round(p * 100);
-                loadingStateSetters.setGifProgress(progressPercent);
-                loadingStateSetters.setStatus(`Rendering GIF: ${progressPercent}%`);
-            });
-
-            gif.on("finished", (blob) => {
-                gifRef.current = null; // clear ref once finished
-                gifCacheRef.current = blob; // cache the generated gif
-                if (isCancelledRef.current) {
-                    return reject(new Error("Cancelled"));
-                }
-                loadingStateSetters.setIsRenderingGif(false);
-                loadingStateSetters.setGifProgress(100);
-                loadingStateSetters.setStatus("GIF Rendered!");
-                resolve(blob);
-            });
-
-            const imageElements = await Promise.all(
-                generatedFrames.map((blob) => {
-                    return new Promise((resolveImg) => {
-                        const img = new Image();
-                        img.onload = () => resolveImg(img);
-                        img.src = URL.createObjectURL(blob);
-                    });
-                })
-            );
-
-            // temporary canvas to apply effects before adding to GIF
-            const tempCanvas = document.createElement("canvas");
-            tempCanvas.width = width;
-            tempCanvas.height = height;
-            const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
-
-            // effects.seamless loop
-            let framesToRender = [...imageElements];
-            if (effects.seamless) {
-                // reverse frames and remove first and last to avoid duplicates
-                const reversed = [...imageElements].reverse().slice(1, -1);
-                framesToRender = [...framesToRender, ...reversed];
-            }
-
-            framesToRender.forEach((img) => {
-                tempCtx.clearRect(0, 0, width, height);
-                tempCtx.drawImage(img, 0, 0, width, height);
-                applyEffects(tempCtx, width, height, effects);
-                gif.addFrame(tempCanvas, { delay: delay, copy: true }); // copy=true to capture the current state of the temp canvas
-            });
-
-            imageElements.forEach((img) => {
-                URL.revokeObjectURL(img.src);
-            });
-
-            gif.render();
-        });
-    };
-
-    const getCanvasBlob = (canvas) => {
-        return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
-    };
-
-    const triggerDownload = async (blob, filename) => {
-        const file = new File([blob], filename, { type: blob.type });
-
-        // check for iOS devices
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-        // files types that should use the Web Share API on mobile
-        const mediaTypesForSharing = ["image/gif", "video/mp4"];
-        const shouldUseShareAPI = isIOS && mediaTypesForSharing.includes(file.type) && navigator.share;
-
-        // use Web Share API on mobile if available
-        if (shouldUseShareAPI) {
-            // CASE 1: Gif/Video on an iOS device
-            try {
-                await navigator.share({
-                    files: [file],
-                    title: "My Fragmented Image",
-                    text: "Check out this animation!",
-                });
-                loadingStateSetters.setStatus("Shared successfully!");
-            } catch (error) {
-                // catch if the user cancels the share.
-                // don't need a fallback here because cancelling is intentional.
-                console.log("Share was cancelled or failed", error);
-                loadingStateSetters.setStatus("Share cancelled.");
-            }
-        } else {
-            // CASE 2: GIFs/Videos on Desktop/non-iOS mobile, ZIPs on all devices
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-
-            // cleanup
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-    };
-
-    const downloadZip = async () => {
-        if (typeof JSZip === "undefined") {
-            alert("JSZip library not loaded yet. Please wait.");
-            return;
-        }
-        loadingStateSetters.setIsDownloading("zip");
-        loadingStateSetters.setStatus("Applying effects and creating ZIP...");
-        const zip = new JSZip();
-
-        // create temporary canvas to apply effects
-        const { width, height } = outputDimensions;
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = width;
-        tempCanvas.height = height;
-        const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
-
-        // use preloadedImages as they are already decoded and ready to draw
-        for (let i = 0; i < preloadedImages.length; i++) {
-            const img = preloadedImages[i];
-
-            tempCtx.clearRect(0, 0, width, height);
-            tempCtx.drawImage(img, 0, 0, width, height);
-
-            applyEffects(tempCtx, width, height, effects);
-
-            const newBlob = await new Promise((resolve) => tempCanvas.toBlob(resolve, "image/jpeg", 0.9));
-
-            zip.file(`frame_${String(i).padStart(4, "0")}.jpg`, newBlob);
-        }
-
-        loadingStateSetters.setStatus("Generating ZIP file...");
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-        triggerDownload(zipBlob, zipFilename);
-        loadingStateSetters.setStatus("ZIP download started!");
-        loadingStateSetters.setIsDownloading(null);
-    };
-
-    const downloadGif = async () => {
-        loadingStateSetters.setIsDownloading("gif");
-        try {
-            const finalGifBlob = await generateFinalGifBlob(gifDelay);
-            if (!isCancelledRef.current) {
-                triggerDownload(finalGifBlob, gifFilename);
-                loadingStateSetters.setStatus("GIF download started!");
-            }
-        } catch (error) {
-            if (!isCancelledRef.current) {
-                console.error("Failed to generate GIF:", error);
-                loadingStateSetters.setStatus("Error creating GIF. See console.");
-            }
-        }
-        loadingStateSetters.setIsDownloading(null);
-    };
-
-    const downloadVideo = async () => {
-        if (!ffmpegRead || !ffmpeg) {
-            loadingStateSetters.setStatus("FFmpeg is not loaded yet. Please wait.");
-            return;
-        }
-
-        isCancelledRef.current = false;
-        loadingStateSetters.setIsDownloading("video");
-        loadingStateSetters.setVideoProgress(0);
-
-        try {
-            loadingStateSetters.setStatus("Rendering GIF for video conversion...");
-            const finalGifBlob = await generateFinalGifBlob(gifDelay);
-
-            if (isCancelledRef.current) return;
-
-            const files = await ffmpeg.listDir("/");
-            if (files.some((file) => file.name === gifFilename)) {
-                await ffmpeg.deleteFile(gifFilename);
-            }
-            if (files.some((file) => file.name === videoFilename)) {
-                await ffmpeg.deleteFile(videoFilename);
-            }
-
-            await ffmpeg.writeFile(gifFilename, await fetchFile(finalGifBlob));
-
-            loadingStateSetters.setStatus("Converting GIF to MP4...");
-            ffmpeg.on("progress", ({ progress }) => {
-                loadingStateSetters.setVideoProgress(Math.min(100, Math.round(progress * 100)));
-            });
-
-            await ffmpeg.exec([
-                "-i",
-                gifFilename, // Input file
-                "-movflags",
-                "+faststart", // Optimizes for web playback
-                "-c:v",
-                "libx264", // Video codec
-                "-pix_fmt",
-                "yuv420p", // Crucial for compatibility
-                videoFilename, // Output file
-            ]);
-
-            if (isCancelledRef.current) return;
-
-            loadingStateSetters.setStatus("Finalizing video file...");
-            const data = await ffmpeg.readFile(videoFilename);
-            const videoBlob = new Blob([data], { type: "video/mp4" });
-            triggerDownload(videoBlob, videoFilename);
-            loadingStateSetters.setStatus("Video download started!");
-        } catch (error) {
-            if (!isCancelledRef.current) {
-                console.error("Error converting GIF to video with FFmpeg:", error);
-                loadingStateSetters.setStatus("Failed to create video. See console.");
-            }
-        } finally {
-            loadingStateSetters.setIsDownloading(null);
-            loadingStateSetters.setVideoProgress(0);
-
-            try {
-                const finalFiles = await ffmpeg.listDir("/");
-                if (finalFiles.some((file) => file.name === gifFilename)) {
-                    await ffmpeg.deleteFile(gifFilename);
-                }
-                if (finalFiles.some((file) => file.name === videoFilename)) {
-                    await ffmpeg.deleteFile(videoFilename);
-                }
-            } catch (cleanupError) {
-                console.error("Error during FFmpeg cleanup:", cleanupError);
-            }
-        }
-    };
-
     const body = (
         <main className="w-full bg-neutral-400 flex flex-col flex-grow items-center justify-center p-4">
             <div className="window w-full max-w-md p-6 md:p-8 space-y-6">
@@ -596,7 +280,11 @@ export default function ImageFragmenter() {
                     {originalImage && generatedFrames.length === 0 && (
                         <>
                             <FrameCountField frameCount={frameCount} setFrameCount={setFrameCount} disabled={allBusy} />
-                            <button onClick={generateFrames} disabled={allBusy} className="w-full mt-4 p-2 text-sm flex items-center justify-center disabled:cursor-not-allowed">
+                            <button
+                                onClick={() => generateFrames(originalImage, frameCount)}
+                                disabled={allBusy}
+                                className="w-full mt-4 p-2 text-sm flex items-center justify-center disabled:cursor-not-allowed"
+                            >
                                 {(loadingStates.isProcessing || loadingStates.isRenderingGif) && <TbBolt className="w-5 h-5 mr-2 animate-pulse" />}
                                 {loadingStates.isProcessing ? "Generating..." : loadingStates.isRenderingGif ? "Rendering..." : "Generate Art"}
                             </button>
@@ -618,7 +306,12 @@ export default function ImageFragmenter() {
 
                     {loadingStates.isDownloading === "video" && <ProgressBar type="video" gifProgress={loadingStates.gifProgress} videoProgress={loadingStates.videoProgress} />}
 
-                    {generatedFrames.length > 0 && <DownloadPanel downloadFunctions={{ downloadZip, downloadGif, downloadVideo }} allBusy={allBusy} />}
+                    {generatedFrames.length > 0 && (
+                        <DownloadPanel
+                            downloadFunctions={{ downloadZip: () => handleDownload("zip"), downloadGif: () => handleDownload("gif"), downloadVideo: () => handleDownload("video") }}
+                            allBusy={allBusy}
+                        />
+                    )}
                 </div>
             </div>
             <div className="w-full max-w-md flex flex-row justify-between items-center mt-5">
