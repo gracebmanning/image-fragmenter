@@ -8,11 +8,13 @@ import { useFrameGenerator } from "../hooks/useFrameGenerator";
 // UTILITY
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { toBlobURL } from "@ffmpeg/util";
+import heic2any from "heic2any";
 
 // ICONS
 import mouse from "../assets/mouse_speed.png";
 import trash from "../assets/recycle_bin_full-2.png";
 import help from "../assets/help_sheet-0.png";
+import construction from "../assets/construction.gif";
 import { TbBolt, TbTrash } from "react-icons/tb";
 
 // UI COMPONENTS
@@ -181,13 +183,38 @@ export default function ImageFragmenter() {
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => setIsModalOpen(false);
 
-    const handleFileSelect = (event) => {
+    const handleFileSelect = async (event) => {
         const file = event.target.files[0];
         if (!file) return;
-        if (!["image/png", "image/jpeg"].includes(file.type)) {
-            loadingStateSetters.setStatus("Unsupported file type.");
+
+        const acceptedTypes = ["image/jpeg", "image/png", "image/heic", "image/heif"];
+        const isHeic = file.type.includes("heic") || file.type.includes("heif") || file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif");
+        if (!acceptedTypes.includes(file.type) && !isHeic) {
+            loadingStateSetters.setStatus("Unsupported file type. Please use JPG, PNG, or HEIC.");
             return;
         }
+
+        let blobToProcess = file;
+
+        // if HEIC, convert to JPEG
+        if (isHeic) {
+            loadingStateSetters.setStatus("Converting HEIC to JPEG...");
+            loadingStateSetters.setIsProcessing(true);
+            try {
+                const convertedBlob = await heic2any({
+                    blob: file,
+                    toType: "image/jpeg",
+                    quality: 0.9,
+                });
+                blobToProcess = convertedBlob;
+            } catch (error) {
+                console.error("Error converting HEIC file:", error);
+                loadingStateSetters.setStatus("Could not convert HEIC file to JPEG.");
+                return;
+            }
+            loadingStateSetters.setIsProcessing(false);
+        }
+
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
@@ -199,7 +226,7 @@ export default function ImageFragmenter() {
             };
             img.src = e.target.result;
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(blobToProcess);
     };
 
     const resetImage = () => {
@@ -257,14 +284,19 @@ export default function ImageFragmenter() {
                     <div className="title-bar-text text-xl font-bold text-white">Image Fragmenter</div>
                 </div>
                 <div className="window-body">
-                    <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+                    <input type="file" accept="image/jpeg,image/png,image/heic,image/heif" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
 
                     {!imagePreview && (
                         <div className="field-row flex flex-col justify-center m-4">
-                            <button onClick={() => fileInputRef.current.click()} className="w-full flex flex-col items-center justify-center hover:scale-105">
+                            <button
+                                onClick={() => fileInputRef.current.click()}
+                                disabled={allBusy}
+                                className="w-full flex flex-col items-center justify-center hover:scale-105 disabled:pointer-events-none"
+                            >
                                 <img src={mouse} alt="cursor icon with speed lines" className="w-10 h-10 m-2" />
                                 <span className="m-2 text-neutral-800 text-sm">Click to Upload Image</span>
                             </button>
+                            {loadingStates.isProcessing && <img src={construction} alt="construction man" className="w-20 h-auto mr-1" />}
                         </div>
                     )}
 
