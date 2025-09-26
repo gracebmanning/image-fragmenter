@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import { TbBolt, TbTrash } from "react-icons/tb";
 import JSZip from "jszip";
 import GIF from "gif.js";
-import heic2any from "heic2any";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
@@ -163,36 +162,13 @@ export default function ImageFragmenter() {
     const openModal = () => setIsModalOpen(true);
     const closeModal = () => setIsModalOpen(false);
 
-    const handleFileSelect = async (event) => {
+    const handleFileSelect = (event) => {
         const file = event.target.files[0];
         if (!file) return;
-
-        const acceptedTypes = ["image/jpeg", "image/png", "image/heic", "image/heif"];
-        const isHeic = file.type.includes("heic") || file.type.includes("heif") || file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif");
-        if (!acceptedTypes.includes(file.type) && !isHeic) {
-            loadingStateSetters.setStatus("Unsupported file type. Please use JPG, PNG, or HEIC.");
+        if (!["image/png", "image/jpeg"].includes(file.type)) {
+            loadingStateSetters.setStatus("Unsupported file type.");
             return;
         }
-
-        let blobToProcess = file;
-
-        // if HEIC, convert to JPEG
-        if (isHeic) {
-            loadingStateSetters.setStatus("Converting HEIC to JPEG...");
-            try {
-                const convertedBlob = await heic2any({
-                    blob: file,
-                    toType: "image/jpeg",
-                    quality: 0.9,
-                });
-                blobToProcess = convertedBlob;
-            } catch (error) {
-                console.error("Error converting HEIC file:", error);
-                loadingStateSetters.setStatus("Could not convert HEIC file to JPEG.");
-                return;
-            }
-        }
-
         const reader = new FileReader();
         reader.onload = (e) => {
             const img = new Image();
@@ -204,7 +180,7 @@ export default function ImageFragmenter() {
             };
             img.src = e.target.result;
         };
-        reader.readAsDataURL(blobToProcess);
+        reader.readAsDataURL(file);
     };
 
     const resetImage = () => {
