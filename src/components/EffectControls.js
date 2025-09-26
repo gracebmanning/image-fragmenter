@@ -3,8 +3,8 @@ const disabledStyle = { color: "#808080", textShadow: "1px 1px 0 #ffffff" };
 const activeStyle = { color: "#262626", textShadow: "none" };
 
 export default function EffectControls({ effects, setters, disabled }) {
-    const { seamless, invert, grayscale, sepia, edgeDetect, pixelate, noBg } = effects;
-    const { setSeamless, setInvert, setGrayscale, setSepia, setEdgeDetect, setPixelate, setNoBg } = setters;
+    const { seamless, invert, grayscale, sepia, edgeDetect, pixelate } = effects;
+    const { setSeamless, setInvert, setGrayscale, setSepia, setEdgeDetect, setPixelate } = setters;
 
     return (
         <>
@@ -42,12 +42,6 @@ export default function EffectControls({ effects, setters, disabled }) {
                     <input type="checkbox" id="edgeDetectCheckbox" checked={edgeDetect} onChange={() => setEdgeDetect(!edgeDetect)} disabled={disabled} />
                     <label htmlFor="edgeDetectCheckbox" className="text-sm font-medium text-neutral-800">
                         Edge detect
-                    </label>
-                </div>
-                <div className="field-row w-full">
-                    <input type="checkbox" id="noBgCheckbox" checked={noBg} onChange={() => setNoBg(!noBg)} disabled={disabled} />
-                    <label htmlFor="noBgCheckbox" className="text-sm font-medium text-neutral-800">
-                        No background
                     </label>
                 </div>
             </div>

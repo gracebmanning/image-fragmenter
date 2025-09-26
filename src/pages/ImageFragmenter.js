@@ -137,7 +137,7 @@ export default function ImageFragmenter() {
         // run animation
         if (preloadedImages.length > 0 && canvasRef.current && !allBusy) {
             const canvas = canvasRef.current;
-            const ctx = canvas.getContext("2d", { willReadFrequently: true });
+            const ctx = canvas.getContext("2d", { willReadFrequently: true, alpha: true });
             const { width, height } = outputDimensions;
             canvas.width = width;
             canvas.height = height;
@@ -312,8 +312,14 @@ export default function ImageFragmenter() {
                     {originalImage && generatedFrames.length === 0 && (
                         <>
                             <FrameCountField frameCount={frameCount} setFrameCount={setFrameCount} disabled={allBusy} />
+                            <div className="field-row w-full">
+                                <input type="checkbox" id="noBgCheckbox" checked={effects.noBg} onChange={() => effectSetters.setNoBg(!effects.noBg)} disabled={allBusy} />
+                                <label htmlFor="noBgCheckbox" className="text-sm font-medium text-neutral-800">
+                                    Transparent background
+                                </label>
+                            </div>
                             <button
-                                onClick={() => generateFrames(originalImage, frameCount)}
+                                onClick={() => generateFrames(originalImage, frameCount, effects.noBg)}
                                 disabled={allBusy}
                                 className="w-full mt-4 p-2 text-sm flex items-center justify-center disabled:cursor-not-allowed"
                             >
