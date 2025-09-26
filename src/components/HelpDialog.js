@@ -83,6 +83,9 @@ export default function HelpDialog({ isOpen, onClose }) {
                                     <u>Edge Detect</u>: Detect edges in the image.
                                 </li>
                                 <li>
+                                    <u>No Background</u>: Remove the original image from the background. Creates a transparent background.
+                                </li>
+                                <li>
                                     <u>Pixelate</u>: Adjust the resolution to make each pixel more or less visible.
                                 </li>
                             </ul>
