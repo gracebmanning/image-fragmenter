@@ -3,8 +3,8 @@ const disabledStyle = { color: "#808080", textShadow: "1px 1px 0 #ffffff" };
 const activeStyle = { color: "#262626", textShadow: "none" };
 
 export default function EffectControls({ effects, setters, disabled }) {
-    const { seamless, invert, grayscale, sepia, edgeDetect, pixelate } = effects;
-    const { setSeamless, setInvert, setGrayscale, setSepia, setEdgeDetect, setPixelate } = setters;
+    const { seamless, invert, grayscale, sepia, edgeDetect, pixelate, noBg } = effects;
+    const { setSeamless, setInvert, setGrayscale, setSepia, setEdgeDetect, setPixelate, setNoBg } = setters;
 
     return (
         <>
@@ -38,20 +38,28 @@ export default function EffectControls({ effects, setters, disabled }) {
                 </div>
             </div>
             <div className="flex flex-row justify-center items-center w-[90%]">
-                <div className="field-row w-[40%]">
+                <div className="field-row w-full">
                     <input type="checkbox" id="edgeDetectCheckbox" checked={edgeDetect} onChange={() => setEdgeDetect(!edgeDetect)} disabled={disabled} />
                     <label htmlFor="edgeDetectCheckbox" className="text-sm font-medium text-neutral-800">
                         Edge detect
                     </label>
                 </div>
-                <div className="field-row w-[60%]">
-                    <label htmlFor="pixelateSlider" className="text-sm font-medium" style={disabled ? disabledStyle : activeStyle}>
-                        Pixelate
+                <div className="field-row w-full">
+                    <input type="checkbox" id="noBgCheckbox" checked={noBg} onChange={() => setNoBg(!noBg)} disabled={disabled} />
+                    <label htmlFor="noBgCheckbox" className="text-sm font-medium text-neutral-800">
+                        No background
                     </label>
+                </div>
+            </div>
+            <div className="field-row-stacked w-[90%]">
+                <label htmlFor="delaySlider" className="text-sm font-medium" style={disabled ? disabledStyle : activeStyle}>
+                    Pixelate: {pixelate}%
+                </label>
+                <div className="field-row w-full">
                     <label htmlFor="range0" className="text-xs" style={disabled ? disabledStyle : activeStyle}>
                         0%
                     </label>
-                    <input id="pixelateSlider" type="range" min="0" max="100" step="1" value={pixelate} onChange={(e) => setPixelate(Number(e.target.value))} disabled={disabled} />
+                    <input id="delaySlider" type="range" min="0" max="100" step="1" value={pixelate} onChange={(e) => setPixelate(Number(e.target.value))} disabled={disabled} />
                     <label htmlFor="range100" className="text-xs" style={disabled ? disabledStyle : activeStyle}>
                         100%
                     </label>
