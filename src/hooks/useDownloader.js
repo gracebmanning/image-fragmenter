@@ -71,9 +71,16 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
 
             applyEffects(tempCtx, width, height, effects);
 
-            const newBlob = await new Promise((resolve) => tempCanvas.toBlob(resolve, "image/jpeg", 0.9));
+            const newBlob = await new Promise((resolve) => {
+                if (effects.noBg) {
+                    tempCanvas.toBlob(resolve, "image/png");
+                } else {
+                    tempCanvas.toBlob(resolve, "image/jpeg", 0.9);
+                }
+            });
 
-            zip.file(`frame_${String(i).padStart(4, "0")}.jpg`, newBlob);
+            const fileExtension = effects.noBg ? ".png" : ".jpg";
+            zip.file(`frame_${String(i).padStart(4, "0")}${fileExtension}`, newBlob);
         }
 
         loadingStateSetters.setStatus("Generating ZIP file...");
