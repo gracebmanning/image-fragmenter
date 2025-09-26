@@ -14,6 +14,7 @@ import heic2any from "heic2any";
 import mouse from "../assets/mouse_speed.png";
 import trash from "../assets/recycle_bin_full-2.png";
 import help from "../assets/help_sheet-0.png";
+import construction from "../assets/construction.gif";
 import { TbBolt, TbTrash } from "react-icons/tb";
 
 // UI COMPONENTS
@@ -287,10 +288,15 @@ export default function ImageFragmenter() {
 
                     {!imagePreview && (
                         <div className="field-row flex flex-col justify-center m-4">
-                            <button onClick={() => fileInputRef.current.click()} className="w-full flex flex-col items-center justify-center hover:scale-105">
+                            <button
+                                onClick={() => fileInputRef.current.click()}
+                                disabled={allBusy}
+                                className="w-full flex flex-col items-center justify-center hover:scale-105 disabled:pointer-events-none"
+                            >
                                 <img src={mouse} alt="cursor icon with speed lines" className="w-10 h-10 m-2" />
                                 <span className="m-2 text-neutral-800 text-sm">Click to Upload Image</span>
                             </button>
+                            {loadingStates.isProcessing && <img src={construction} alt="construction man" className="w-20 h-auto mr-1" />}
                         </div>
                     )}
 
