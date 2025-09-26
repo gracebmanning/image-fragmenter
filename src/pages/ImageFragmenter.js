@@ -184,8 +184,11 @@ export default function ImageFragmenter() {
     const handleFileSelect = (event) => {
         const file = event.target.files[0];
         if (!file) return;
-        if (!["image/png", "image/jpeg"].includes(file.type)) {
-            loadingStateSetters.setStatus("Unsupported file type.");
+
+        const acceptedTypes = ["image/jpeg", "image/png", "image/heic", "image/heif"];
+        const isHeic = file.type.includes("heic") || file.type.includes("heif") || file.name.toLowerCase().endsWith(".heic") || file.name.toLowerCase().endsWith(".heif");
+        if (!acceptedTypes.includes(file.type) && !isHeic) {
+            loadingStateSetters.setStatus("Unsupported file type. Please use JPG, PNG, or HEIC.");
             return;
         }
         const reader = new FileReader();
@@ -257,7 +260,7 @@ export default function ImageFragmenter() {
                     <div className="title-bar-text text-xl font-bold text-white">Image Fragmenter</div>
                 </div>
                 <div className="window-body">
-                    <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+                    <input type="file" accept="image/jpeg,image/png,image/heic,image/heif" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
 
                     {!imagePreview && (
                         <div className="field-row flex flex-col justify-center m-4">
