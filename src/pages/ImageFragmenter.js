@@ -573,7 +573,7 @@ export default function ImageFragmenter() {
                     <div className="title-bar-text text-xl font-bold text-white">Image Fragmenter</div>
                 </div>
                 <div className="window-body">
-                    <input type="file" accept="image/jpeg,image/png" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+                    <input type="file" accept="image/jpeg,image/png,image/heic,image/heif" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
 
                     {!imagePreview && (
                         <div className="field-row flex flex-col justify-center m-4">
