@@ -12,7 +12,6 @@ import { useLoadingStates } from "../hooks/useLoadingStates";
 import mouse from "../assets/mouse_speed.png";
 import trash from "../assets/recycle_bin_full-2.png";
 import help from "../assets/help_sheet-0.png";
-import construction from "../assets/construction.gif";
 
 import HelpDialog from "../components/HelpDialog";
 import EffectControls from "../components/EffectControls";
@@ -180,7 +179,6 @@ export default function ImageFragmenter() {
         // if HEIC, convert to JPEG
         if (isHeic) {
             loadingStateSetters.setStatus("Converting HEIC to JPEG...");
-            loadingStateSetters.setIsProcessing(true);
             try {
                 const convertedBlob = await heic2any({
                     blob: file,
@@ -193,7 +191,6 @@ export default function ImageFragmenter() {
                 loadingStateSetters.setStatus("Could not convert HEIC file to JPEG.");
                 return;
             }
-            loadingStateSetters.setIsProcessing(false);
         }
 
         const reader = new FileReader();
@@ -604,15 +601,10 @@ export default function ImageFragmenter() {
 
                     {!imagePreview && (
                         <div className="field-row flex flex-col justify-center m-4">
-                            <button
-                                onClick={() => fileInputRef.current.click()}
-                                disabled={allBusy}
-                                className="w-full flex flex-col items-center justify-center hover:scale-105 disabled:pointer-events-none"
-                            >
+                            <button onClick={() => fileInputRef.current.click()} className="w-full flex flex-col items-center justify-center hover:scale-105">
                                 <img src={mouse} alt="cursor icon with speed lines" className="w-10 h-10 m-2" />
                                 <span className="m-2 text-neutral-800 text-sm">Click to Upload Image</span>
                             </button>
-                            {loadingStates.isProcessing && <img src={construction} alt="construction man" className="w-20 h-auto mr-1" />}
                         </div>
                     )}
 
