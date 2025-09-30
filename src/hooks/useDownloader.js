@@ -41,7 +41,7 @@ const triggerDownload = async (blob, filename) => {
     }
 };
 
-export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters }) => {
+export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters, noBg }) => {
     const zipFilename = `glitch-images.zip`;
     const gifFilename = `animation_${gifDelay}ms.gif`;
     const videoFilename = `animation_${gifDelay}ms.mp4`;
@@ -60,10 +60,15 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
         const tempCanvas = document.createElement("canvas");
         tempCanvas.width = width;
         tempCanvas.height = height;
-        const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+        const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true, alpha: true });
 
         // use preloadedImages as they are already decoded and ready to draw
         for (let i = 0; i < preloadedImages.length; i++) {
+            // skip frame 0 if noBg is true (otherwise creates a blank transparent image)
+            if (noBg && i === 0) {
+                continue;
+            }
+
             const img = preloadedImages[i];
 
             tempCtx.clearRect(0, 0, width, height);
@@ -71,9 +76,16 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
 
             applyEffects(tempCtx, width, height, effects);
 
-            const newBlob = await new Promise((resolve) => tempCanvas.toBlob(resolve, "image/jpeg", 0.9));
+            const newBlob = await new Promise((resolve) => {
+                if (noBg) {
+                    tempCanvas.toBlob(resolve, "image/png");
+                } else {
+                    tempCanvas.toBlob(resolve, "image/jpeg", 0.9);
+                }
+            });
 
-            zip.file(`frame_${String(i).padStart(4, "0")}.jpg`, newBlob);
+            const fileExtension = noBg ? ".png" : ".jpg";
+            zip.file(`frame_${String(i).padStart(4, "0")}${fileExtension}`, newBlob);
         }
 
         loadingStateSetters.setStatus("Generating ZIP file...");
@@ -131,15 +143,29 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
                 loadingStateSetters.setVideoProgress(Math.min(100, Math.round(progress * 100)));
             });
 
+            // await ffmpeg.exec([
+            //     "-i",
+            //     gifFilename, // Input file
+            //     "-movflags",
+            //     "+faststart", // Optimizes for web playback
+            //     "-c:v",
+            //     "libx264", // Video codec
+            //     "-pix_fmt",
+            //     "yuv420p", // Pixel format
+            //     videoFilename, // Output file
+            // ]);
+
+            const videoBgColor = "black";
+            const { width, height } = outputDimensions;
             await ffmpeg.exec([
                 "-i",
                 gifFilename, // Input file
-                "-movflags",
-                "+faststart", // Optimizes for web playback
+                "-filter_complex", // Use filter complex (to set bg color)
+                `color=c=${videoBgColor}:s=${width}x${height},format=rgb24[bg];[bg][0:v]overlay=shortest=1`,
                 "-c:v",
                 "libx264", // Video codec
                 "-pix_fmt",
-                "yuv420p", // Crucial for compatibility
+                "yuv420p", // Pixel format
                 videoFilename, // Output file
             ]);
 

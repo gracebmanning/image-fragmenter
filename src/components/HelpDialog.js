@@ -39,15 +39,16 @@ export default function HelpDialog({ isOpen, onClose }) {
                             <b>How To Use</b>
                             <ul>
                                 <li>1. Upload an image and set a number of frames to generate.</li>
+                                <li>2. Choose "Transparent background" if you would like the gif & zip image files to have a transparent background.</li>
                                 <li>
-                                    2. Press "Generate Art" and let the magic happen!
+                                    3. Press "Generate Art" and let the magic happen!
                                     <ul>
                                         <li>(An algorithm will randomly select parts of your image to crop & paste onto itself.)</li>
                                     </ul>
                                 </li>
-                                <li>3. After the frames are generated, a GIF will render.</li>
-                                <li>4. Adjust the delay and image effects.</li>
-                                <li>5. When you're happy with it, download your artwork!</li>
+                                <li>4. After the frames are generated, a GIF will render.</li>
+                                <li>5. Adjust the delay and image effects.</li>
+                                <li>6. When you're happy with it, download your artwork!</li>
                             </ul>
                         </li>
                         <li>

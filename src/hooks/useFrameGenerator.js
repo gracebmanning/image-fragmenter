@@ -2,15 +2,21 @@ import { useState, useCallback } from "react";
 import GIF from "gif.js";
 import applyEffects from "../utils/imageEffects";
 
-const getCanvasBlob = (canvas) => {
-    return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+const getCanvasBlob = (canvas, noBg = false) => {
+    return new Promise((resolve) => {
+        if (noBg) {
+            canvas.toBlob(resolve, "image/png");
+        } else {
+            canvas.toBlob(resolve, "image/jpeg", 0.9);
+        }
+    });
 };
 
 export const useFrameGenerator = ({ isCancelledRef, gifRef, gifCacheRef, loadingStateSetters, effects, outputDimensions, setOutputDimensions }) => {
     const [generatedFrames, setGeneratedFrames] = useState([]);
 
     const generateFrames = useCallback(
-        async (originalImage, frameCount) => {
+        async (originalImage, frameCount, noBg) => {
             if (!originalImage) return;
             isCancelledRef.current = false; // reset cancellation flag
 
@@ -32,7 +38,7 @@ export const useFrameGenerator = ({ isCancelledRef, gifRef, gifCacheRef, loading
                 const scalingCanvas = document.createElement("canvas");
                 scalingCanvas.width = finalWidth;
                 scalingCanvas.height = finalHeight;
-                const scalingCtx = scalingCanvas.getContext("2d", { willReadFrequently: true });
+                const scalingCtx = scalingCanvas.getContext("2d", { willReadFrequently: true, alpha: true });
                 scalingCtx.drawImage(originalImage, 0, 0, finalWidth, finalHeight);
                 imageToProcess = scalingCanvas;
             }
@@ -45,12 +51,17 @@ export const useFrameGenerator = ({ isCancelledRef, gifRef, gifCacheRef, loading
 
             const frames = [];
             const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d", { willReadFrequently: true });
+            const ctx = canvas.getContext("2d", { willReadFrequently: true, alpha: true });
             canvas.width = finalWidth;
             canvas.height = finalHeight;
-            ctx.drawImage(imageToProcess, 0, 0);
 
-            frames.push(await getCanvasBlob(canvas));
+            // don't draw original image if the noBg effect is selected
+            if (!noBg) {
+                ctx.drawImage(imageToProcess, 0, 0);
+            }
+
+            // first frame: either the original image OR a blank transparent canvas
+            frames.push(await getCanvasBlob(canvas, noBg));
 
             for (let i = 0; i < frameCount; i++) {
                 const cropWidth = Math.floor(Math.random() * canvas.width) + 1;
@@ -62,13 +73,13 @@ export const useFrameGenerator = ({ isCancelledRef, gifRef, gifCacheRef, loading
                 const cropCanvas = document.createElement("canvas");
                 cropCanvas.width = cropWidth;
                 cropCanvas.height = cropHeight;
-                cropCanvas.getContext("2d", { willReadFrequently: true }).drawImage(imageToProcess, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+                cropCanvas.getContext("2d", { willReadFrequently: true, alpha: true }).drawImage(imageToProcess, left, top, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
 
                 const pasteX = Math.floor(Math.random() * (canvas.width - cropWidth + 1));
                 const pasteY = Math.floor(Math.random() * (canvas.height - cropHeight + 1));
                 ctx.drawImage(cropCanvas, pasteX, pasteY);
 
-                frames.push(await getCanvasBlob(canvas));
+                frames.push(await getCanvasBlob(canvas, noBg));
                 loadingStateSetters.setStatus(`Generating frame ${i + 1} of ${frameCount}...`);
             }
 
@@ -110,6 +121,7 @@ export const useFrameGenerator = ({ isCancelledRef, gifRef, gifCacheRef, loading
                     width: width,
                     height: height,
                     workerScript: "/js/gif.worker.js",
+                    transparent: "#000000",
                 });
                 gifRef.current = gif;
 
@@ -149,7 +161,7 @@ export const useFrameGenerator = ({ isCancelledRef, gifRef, gifCacheRef, loading
                 const tempCanvas = document.createElement("canvas");
                 tempCanvas.width = width;
                 tempCanvas.height = height;
-                const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+                const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true, alpha: true });
 
                 // effects.seamless loop
                 let framesToRender = [...imageElements];
