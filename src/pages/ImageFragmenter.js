@@ -24,7 +24,7 @@ import DownloadPanel from "../components/DownloadPanel";
 import ProgressBar from "../components/ProgressBar";
 import Layout from "../layouts/layout";
 import DelaySlider from "../components/DelaySlider";
-import FrameCountField from "../components/FrameCountField";
+import InitialControls from "../components/InitialControls";
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
@@ -34,6 +34,7 @@ export default function ImageFragmenter() {
     const [gifDelay, setGifDelay] = useState(100);
     const [outputDimensions, setOutputDimensions] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [noBg, setNoBg] = useState(false);
 
     // FFmpeg State
     const [ffmpeg, setFfmpeg] = useState(null);
@@ -260,6 +261,7 @@ export default function ImageFragmenter() {
         setGeneratedFrames([]);
         setPreloadedImages([]);
         setFrameCount(40);
+        setNoBg(false);
         setOutputDimensions(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = null;
@@ -311,15 +313,9 @@ export default function ImageFragmenter() {
 
                     {originalImage && generatedFrames.length === 0 && (
                         <>
-                            <FrameCountField frameCount={frameCount} setFrameCount={setFrameCount} disabled={allBusy} />
-                            <div className="field-row w-full">
-                                <input type="checkbox" id="noBgCheckbox" checked={effects.noBg} onChange={() => effectSetters.setNoBg(!effects.noBg)} disabled={allBusy} />
-                                <label htmlFor="noBgCheckbox" className="text-sm font-medium text-neutral-800">
-                                    Transparent background
-                                </label>
-                            </div>
+                            <InitialControls frameCount={frameCount} setFrameCount={setFrameCount} disabled={allBusy} backgroundState={{ noBg, setNoBg }} />
                             <button
-                                onClick={() => generateFrames(originalImage, frameCount, effects.noBg)}
+                                onClick={() => generateFrames(originalImage, frameCount, noBg)}
                                 disabled={allBusy}
                                 className="w-full mt-4 p-2 text-sm flex items-center justify-center disabled:cursor-not-allowed"
                             >
@@ -348,6 +344,7 @@ export default function ImageFragmenter() {
                         <DownloadPanel
                             downloadFunctions={{ downloadZip: () => handleDownload("zip"), downloadGif: () => handleDownload("gif"), downloadVideo: () => handleDownload("video") }}
                             allBusy={allBusy}
+                            noBg={noBg}
                         />
                     )}
                 </div>
