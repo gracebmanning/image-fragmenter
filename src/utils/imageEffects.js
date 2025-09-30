@@ -13,7 +13,7 @@ function applyPixelate(ctx, width, height, pixelateLevel) {
     const tempCanvas = document.createElement("canvas");
     tempCanvas.width = pixelsX;
     tempCanvas.height = pixelsY;
-    const tempCtx = tempCanvas.getContext("2d");
+    const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true, alpha: true });
     tempCtx.drawImage(ctx.canvas, 0, 0, width, height, 0, 0, pixelsX, pixelsY);
 
     // Clear the main canvas and draw the scaled-up, pixelated image
@@ -105,7 +105,7 @@ function applyEdgeDetect(data, width, height) {
             output[i] = mag_r;
             output[i + 1] = mag_g;
             output[i + 2] = mag_b;
-            output[i + 3] = 255;
+            output[i + 3] = data[i + 3];
         }
     }
     return output;

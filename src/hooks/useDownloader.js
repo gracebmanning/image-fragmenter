@@ -60,7 +60,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
         const tempCanvas = document.createElement("canvas");
         tempCanvas.width = width;
         tempCanvas.height = height;
-        const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+        const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true, alpha: true });
 
         // use preloadedImages as they are already decoded and ready to draw
         for (let i = 0; i < preloadedImages.length; i++) {
