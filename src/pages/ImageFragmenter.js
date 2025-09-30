@@ -70,6 +70,7 @@ export default function ImageFragmenter() {
         ffmpegRead,
         isCancelledRef,
         loadingStateSetters,
+        noBg,
     });
 
     const allBusy = loadingStates.isProcessing || loadingStates.isDownloading || loadingStates.isRenderingGif;

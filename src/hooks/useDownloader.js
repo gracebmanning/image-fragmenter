@@ -41,7 +41,7 @@ const triggerDownload = async (blob, filename) => {
     }
 };
 
-export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters }) => {
+export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters, noBg }) => {
     const zipFilename = `glitch-images.zip`;
     const gifFilename = `animation_${gifDelay}ms.gif`;
     const videoFilename = `animation_${gifDelay}ms.mp4`;
@@ -64,6 +64,11 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
 
         // use preloadedImages as they are already decoded and ready to draw
         for (let i = 0; i < preloadedImages.length; i++) {
+            // skip frame 0 if noBg is true (otherwise creates a blank transparent image)
+            if (noBg && i === 0) {
+                continue;
+            }
+
             const img = preloadedImages[i];
 
             tempCtx.clearRect(0, 0, width, height);
@@ -72,14 +77,14 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
             applyEffects(tempCtx, width, height, effects);
 
             const newBlob = await new Promise((resolve) => {
-                if (effects.noBg) {
+                if (noBg) {
                     tempCanvas.toBlob(resolve, "image/png");
                 } else {
                     tempCanvas.toBlob(resolve, "image/jpeg", 0.9);
                 }
             });
 
-            const fileExtension = effects.noBg ? ".png" : ".jpg";
+            const fileExtension = noBg ? ".png" : ".jpg";
             zip.file(`frame_${String(i).padStart(4, "0")}${fileExtension}`, newBlob);
         }
 
