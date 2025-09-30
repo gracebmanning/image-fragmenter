@@ -138,15 +138,29 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
                 loadingStateSetters.setVideoProgress(Math.min(100, Math.round(progress * 100)));
             });
 
+            // await ffmpeg.exec([
+            //     "-i",
+            //     gifFilename, // Input file
+            //     "-movflags",
+            //     "+faststart", // Optimizes for web playback
+            //     "-c:v",
+            //     "libx264", // Video codec
+            //     "-pix_fmt",
+            //     "yuv420p", // Pixel format
+            //     videoFilename, // Output file
+            // ]);
+
+            const videoBgColor = "black";
+            const { width, height } = outputDimensions;
             await ffmpeg.exec([
                 "-i",
                 gifFilename, // Input file
-                "-movflags",
-                "+faststart", // Optimizes for web playback
+                "-filter_complex", // Use filter complex (to set bg color)
+                `color=c=${videoBgColor}:s=${width}x${height},format=rgb24[bg];[bg][0:v]overlay=shortest=1`,
                 "-c:v",
                 "libx264", // Video codec
                 "-pix_fmt",
-                "yuv420p", // Crucial for compatibility
+                "yuv420p", // Pixel format
                 videoFilename, // Output file
             ]);
 
