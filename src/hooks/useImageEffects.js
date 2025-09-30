@@ -7,7 +7,6 @@ export function useImageEffects() {
     const [sepia, setSepia] = useState(false);
     const [edgeDetect, setEdgeDetect] = useState(false);
     const [pixelate, setPixelate] = useState(0);
-    const [noBg, setNoBg] = useState(false);
 
     const effectOptions = {
         seamless,
@@ -16,7 +15,6 @@ export function useImageEffects() {
         sepia,
         edgeDetect,
         pixelate,
-        noBg,
     };
 
     const resetEffects = () => {
@@ -26,7 +24,6 @@ export function useImageEffects() {
         setSepia(false);
         setEdgeDetect(false);
         setPixelate(0);
-        setNoBg(false);
     };
 
     return {
@@ -37,7 +34,6 @@ export function useImageEffects() {
         setSepia,
         setEdgeDetect,
         setPixelate,
-        setNoBg,
         resetEffects,
     };
 }
