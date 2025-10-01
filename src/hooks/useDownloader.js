@@ -1,22 +1,9 @@
 import JSZip from "jszip";
 import { fetchFile } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
+import { useState } from "react";
 
-const cleanupMobileFallback = () => {
-    const fallbackElement = document.getElementById("mobile-fallback");
-    if (fallbackElement) {
-        const link = fallbackElement.querySelector("a");
-        if (link) {
-            URL.revokeObjectURL(link.href);
-        }
-        fallbackElement.remove();
-    }
-};
-
-const triggerDownload = async (blob, filename, setStatus) => {
-    // clean up previous file URL
-    cleanupMobileFallback();
-
+const triggerDownload = async (blob, filename, setStatus, setMobileDownloadLink) => {
     const fileType = blob.type;
     const isMediaFile = ["image/gif", "video/mp4"].includes(fileType);
     const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
@@ -24,36 +11,11 @@ const triggerDownload = async (blob, filename, setStatus) => {
     // GIFs and Videos on Mobile
     if (isMobile && isMediaFile) {
         const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank"; // open in a new tab/native player
-        a.textContent = `Tap here to save your ${fileType}.`;
-
-        const p = document.createElement("p");
-        p.textContent = "Then, use the Share icon to share or save to your device.";
-        p.style.fontSize = "small";
-        p.style.marginTop = "5px";
-
-        const fallbackContainer = document.createElement("div");
-        fallbackContainer.id = "mobile-fallback";
-        // Style the container for visibility
-        Object.assign(fallbackContainer.style, {
-            marginTop: "15px",
-            padding: "10px",
-            backgroundColor: "#f0f0f0",
-            border: "1px solid #ccc",
-            borderRadius: "8px",
-            textAlign: "center",
+        setMobileDownloadLink({
+            url: url,
+            fileType: fileType,
         });
 
-        fallbackContainer.appendChild(a);
-        fallbackContainer.appendChild(p);
-
-        // append new element after the status message
-        const statusDiv = document.querySelector(".min-h-5");
-        if (statusDiv) {
-            statusDiv.insertAdjacentElement("afterend", fallbackContainer);
-        }
         setStatus(`Your ${fileType} is ready!`);
         return;
     }
@@ -75,6 +37,8 @@ const triggerDownload = async (blob, filename, setStatus) => {
 };
 
 export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters, noBg }) => {
+    const [mobileDownloadLink, setMobileDownloadLink] = useState(null);
+
     const zipFilename = `glitch-images.zip`;
     const gifFilename = `animation_${gifDelay}ms.gif`;
     const videoFilename = `animation_${gifDelay}ms.mp4`;
@@ -123,7 +87,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
 
         loadingStateSetters.setStatus("Generating ZIP file...");
         const zipBlob = await zip.generateAsync({ type: "blob" });
-        triggerDownload(zipBlob, zipFilename, loadingStateSetters.setStatus);
+        triggerDownload(zipBlob, zipFilename, loadingStateSetters.setStatus, setMobileDownloadLink);
         loadingStateSetters.setIsDownloading(null);
     };
 
@@ -132,7 +96,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
         try {
             const finalGifBlob = await generateFinalGifBlob(gifDelay);
             if (!isCancelledRef.current) {
-                triggerDownload(finalGifBlob, gifFilename, loadingStateSetters.setStatus);
+                triggerDownload(finalGifBlob, gifFilename, loadingStateSetters.setStatus, setMobileDownloadLink);
                 loadingStateSetters.setStatus("GIF download started!");
             }
         } catch (error) {
@@ -206,7 +170,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
             loadingStateSetters.setStatus("Finalizing video file...");
             const data = await ffmpeg.readFile(videoFilename);
             const videoBlob = new Blob([data], { type: "video/mp4" });
-            triggerDownload(videoBlob, videoFilename, loadingStateSetters.setStatus);
+            triggerDownload(videoBlob, videoFilename, loadingStateSetters.setStatus, setMobileDownloadLink);
             loadingStateSetters.setStatus("Video download started!");
         } catch (error) {
             if (!isCancelledRef.current) {
@@ -246,5 +210,5 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
         }
     };
 
-    return { handleDownload };
+    return { handleDownload, mobileDownloadLink, setMobileDownloadLink };
 };

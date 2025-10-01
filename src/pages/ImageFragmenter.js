@@ -25,6 +25,7 @@ import ProgressBar from "../components/ProgressBar";
 import Layout from "../layouts/layout";
 import DelaySlider from "../components/DelaySlider";
 import InitialControls from "../components/InitialControls";
+import MobileDownloadLink from "../components/MobileDownloadLink";
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
@@ -60,7 +61,7 @@ export default function ImageFragmenter() {
         outputDimensions,
         setOutputDimensions,
     });
-    const { handleDownload } = useDownloader({
+    const { handleDownload, mobileDownloadLink, setMobileDownloadLink } = useDownloader({
         preloadedImages,
         outputDimensions,
         effects,
@@ -342,11 +343,14 @@ export default function ImageFragmenter() {
                     {loadingStates.isDownloading === "video" && <ProgressBar type="video" gifProgress={loadingStates.gifProgress} videoProgress={loadingStates.videoProgress} />}
 
                     {generatedFrames.length > 0 && (
-                        <DownloadPanel
-                            downloadFunctions={{ downloadZip: () => handleDownload("zip"), downloadGif: () => handleDownload("gif"), downloadVideo: () => handleDownload("video") }}
-                            allBusy={allBusy}
-                            noBg={noBg}
-                        />
+                        <>
+                            <MobileDownloadLink linkInfo={mobileDownloadLink} setter={setMobileDownloadLink} />
+                            <DownloadPanel
+                                downloadFunctions={{ downloadZip: () => handleDownload("zip"), downloadGif: () => handleDownload("gif"), downloadVideo: () => handleDownload("video") }}
+                                allBusy={allBusy}
+                                noBg={noBg}
+                            />
+                        </>
                     )}
                 </div>
             </div>
