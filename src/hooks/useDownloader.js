@@ -2,19 +2,70 @@ import JSZip from "jszip";
 import { fetchFile } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
 
+const cleanupIosFallback = () => {
+    const fallbackElement = document.getElementById("ios-fallback");
+    if (fallbackElement) {
+        const link = fallbackElement.querySelector("a");
+        if (link) {
+            URL.revokeObjectURL(link.href);
+        }
+        fallbackElement.remove();
+    }
+};
+
 const triggerDownload = async (blob, filename) => {
+    // clean up previous file URL
+    cleanupIosFallback();
+
     const file = new File([blob], filename, { type: blob.type });
 
     // check for iOS devices
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-    // files types that should use the Web Share API on mobile
-    const mediaTypesForSharing = ["image/gif", "video/mp4"];
-    const shouldUseShareAPI = isIOS && mediaTypesForSharing.includes(file.type) && navigator.share;
+    const isVideo = file.type === "video/mp4";
+    const isGif = file.type === "image/gif";
 
-    // use Web Share API on mobile if available
-    if (shouldUseShareAPI) {
-        // CASE 1: Gif/Video on an iOS device
+    // const mediaTypesForSharing = ["image/gif", "video/mp4"]; // file types that should use the Web Share API on mobile
+    // const shouldUseShareAPI = isIOS && mediaTypesForSharing.includes(file.type) && navigator.share;
+
+    // Videos on iOS
+    if (isIOS && isVideo) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.textContent = "Tap here to save your video.";
+        a.target = "_blank"; // open in a new tab/native player
+
+        const p = document.createElement("p");
+        p.textContent = "Then, use the Share icon to 'Save Video' to your Camera Roll.";
+        p.style.fontSize = "small";
+        p.style.marginTop = "5px";
+
+        const fallbackContainer = document.createElement("div");
+        fallbackContainer.id = "ios-fallback";
+        // Style the container for visibility
+        Object.assign(fallbackContainer.style, {
+            marginTop: "15px",
+            padding: "10px",
+            backgroundColor: "#f0f0f0",
+            border: "1px solid #ccc",
+            borderRadius: "8px",
+            textAlign: "center",
+        });
+
+        fallbackContainer.appendChild(a);
+        fallbackContainer.appendChild(p);
+
+        // append new element after the status message
+        const statusDiv = document.querySelector(".min-h-5");
+        if (statusDiv) {
+            statusDiv.insertAdjacentElement("afterend", fallbackContainer);
+        }
+        return;
+    }
+
+    // Gifs on iOS
+    if (isIOS && isGif && navigator.share()) {
         try {
             await navigator.share({
                 files: [file],
@@ -24,10 +75,13 @@ const triggerDownload = async (blob, filename) => {
         } catch (error) {
             // catch if the user cancels the share.
             // don't need a fallback here because cancelling is intentional.
-            console.log("Share was cancelled or failed", error);
+            console.error("Share was cancelled or failed", error);
         }
-    } else {
-        // CASE 2: GIFs/Videos on Desktop/non-iOS mobile, ZIPs on all devices
+        return;
+    }
+
+    // GIFs/Videos on Desktop/non-iOS mobile, ZIPs on all devices
+    else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
