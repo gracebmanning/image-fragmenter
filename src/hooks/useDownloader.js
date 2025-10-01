@@ -13,7 +13,7 @@ const cleanupIosFallback = () => {
     }
 };
 
-const triggerDownload = async (blob, filename) => {
+const triggerDownload = async (blob, filename, setStatus) => {
     // clean up previous file URL
     cleanupIosFallback();
 
@@ -61,6 +61,7 @@ const triggerDownload = async (blob, filename) => {
         if (statusDiv) {
             statusDiv.insertAdjacentElement("afterend", fallbackContainer);
         }
+        setStatus("Your video is ready!");
         return;
     }
 
@@ -72,6 +73,7 @@ const triggerDownload = async (blob, filename) => {
                 title: "My Fragmented Image",
                 text: "Check out this animation!",
             });
+            setStatus("Shared successfully!");
         } catch (error) {
             // catch if the user cancels the share.
             // don't need a fallback here because cancelling is intentional.
@@ -92,6 +94,7 @@ const triggerDownload = async (blob, filename) => {
         // cleanup
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        setStatus("Download started!");
     }
 };
 
@@ -144,8 +147,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
 
         loadingStateSetters.setStatus("Generating ZIP file...");
         const zipBlob = await zip.generateAsync({ type: "blob" });
-        triggerDownload(zipBlob, zipFilename);
-        loadingStateSetters.setStatus("ZIP download started!");
+        triggerDownload(zipBlob, zipFilename, loadingStateSetters.setStatus);
         loadingStateSetters.setIsDownloading(null);
     };
 
