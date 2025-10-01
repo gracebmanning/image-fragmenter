@@ -2,8 +2,8 @@ import JSZip from "jszip";
 import { fetchFile } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
 
-const cleanupIosFallback = () => {
-    const fallbackElement = document.getElementById("ios-fallback");
+const cleanupMobileFallback = () => {
+    const fallbackElement = document.getElementById("mobile-fallback");
     if (fallbackElement) {
         const link = fallbackElement.querySelector("a");
         if (link) {
@@ -15,34 +15,37 @@ const cleanupIosFallback = () => {
 
 const triggerDownload = async (blob, filename, setStatus) => {
     // clean up previous file URL
-    cleanupIosFallback();
+    cleanupMobileFallback();
 
-    const file = new File([blob], filename, { type: blob.type });
+    // const file = new File([blob], filename, { type: blob.type });
 
-    // check for iOS devices
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    // // check for iOS devices
+    // const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-    const isVideo = file.type === "video/mp4";
-    const isGif = file.type === "image/gif";
+    // const isVideo = file.type === "video/mp4";
+    // const isGif = file.type === "image/gif";
 
     // const mediaTypesForSharing = ["image/gif", "video/mp4"]; // file types that should use the Web Share API on mobile
     // const shouldUseShareAPI = isIOS && mediaTypesForSharing.includes(file.type) && navigator.share;
+    const fileType = blob.type;
+    const isMediaFile = ["image/gif", "video/mp4"].includes(fileType);
+    const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
 
-    // Videos on iOS
-    if (isIOS && isVideo) {
+    // GIFs and Videos on Mobile
+    if (isMobile && isMediaFile) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.textContent = "Tap here to save your video.";
         a.target = "_blank"; // open in a new tab/native player
+        a.textContent = `Tap here to save your ${fileType}.`;
 
         const p = document.createElement("p");
-        p.textContent = "Then, use the Share icon to 'Save Video' to your Camera Roll.";
+        p.textContent = "Then, use the Share icon to share or save to your device.";
         p.style.fontSize = "small";
         p.style.marginTop = "5px";
 
         const fallbackContainer = document.createElement("div");
-        fallbackContainer.id = "ios-fallback";
+        fallbackContainer.id = "mobile-fallback";
         // Style the container for visibility
         Object.assign(fallbackContainer.style, {
             marginTop: "15px",
@@ -61,28 +64,11 @@ const triggerDownload = async (blob, filename, setStatus) => {
         if (statusDiv) {
             statusDiv.insertAdjacentElement("afterend", fallbackContainer);
         }
-        setStatus("Your video is ready!");
+        setStatus(`Your ${fileType} is ready!`);
         return;
     }
 
-    // Gifs on iOS
-    if (isIOS && isGif && navigator.share()) {
-        try {
-            await navigator.share({
-                files: [file],
-                title: "My Fragmented Image",
-                text: "Check out this animation!",
-            });
-            setStatus("Shared successfully!");
-        } catch (error) {
-            // catch if the user cancels the share.
-            // don't need a fallback here because cancelling is intentional.
-            console.error("Share was cancelled or failed", error);
-        }
-        return;
-    }
-
-    // GIFs/Videos on Desktop/non-iOS mobile, ZIPs on all devices
+    // GIFs/Videos on Desktop, ZIPs on all devices
     else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
