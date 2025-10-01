@@ -17,16 +17,6 @@ const triggerDownload = async (blob, filename, setStatus) => {
     // clean up previous file URL
     cleanupMobileFallback();
 
-    // const file = new File([blob], filename, { type: blob.type });
-
-    // // check for iOS devices
-    // const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-    // const isVideo = file.type === "video/mp4";
-    // const isGif = file.type === "image/gif";
-
-    // const mediaTypesForSharing = ["image/gif", "video/mp4"]; // file types that should use the Web Share API on mobile
-    // const shouldUseShareAPI = isIOS && mediaTypesForSharing.includes(file.type) && navigator.share;
     const fileType = blob.type;
     const isMediaFile = ["image/gif", "video/mp4"].includes(fileType);
     const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
@@ -142,7 +132,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
         try {
             const finalGifBlob = await generateFinalGifBlob(gifDelay);
             if (!isCancelledRef.current) {
-                triggerDownload(finalGifBlob, gifFilename);
+                triggerDownload(finalGifBlob, gifFilename, loadingStateSetters.setStatus);
                 loadingStateSetters.setStatus("GIF download started!");
             }
         } catch (error) {
@@ -216,7 +206,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
             loadingStateSetters.setStatus("Finalizing video file...");
             const data = await ffmpeg.readFile(videoFilename);
             const videoBlob = new Blob([data], { type: "video/mp4" });
-            triggerDownload(videoBlob, videoFilename);
+            triggerDownload(videoBlob, videoFilename, loadingStateSetters.setStatus);
             loadingStateSetters.setStatus("Video download started!");
         } catch (error) {
             if (!isCancelledRef.current) {
