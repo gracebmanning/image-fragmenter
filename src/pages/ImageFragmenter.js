@@ -36,6 +36,7 @@ export default function ImageFragmenter() {
     const [outputDimensions, setOutputDimensions] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [noBg, setNoBg] = useState(false);
+    const [mobileDownloadLink, setMobileDownloadLink] = useState(null);
 
     // FFmpeg State
     const [ffmpeg, setFfmpeg] = useState(null);
@@ -61,7 +62,7 @@ export default function ImageFragmenter() {
         outputDimensions,
         setOutputDimensions,
     });
-    const { handleDownload, mobileDownloadLink, setMobileDownloadLink } = useDownloader({
+    const { handleDownload } = useDownloader({
         preloadedImages,
         outputDimensions,
         effects,
@@ -72,6 +73,7 @@ export default function ImageFragmenter() {
         isCancelledRef,
         loadingStateSetters,
         noBg,
+        setMobileDownloadLink,
     });
 
     const allBusy = loadingStates.isProcessing || loadingStates.isDownloading || loadingStates.isRenderingGif;
@@ -268,6 +270,7 @@ export default function ImageFragmenter() {
         if (fileInputRef.current) {
             fileInputRef.current.value = null;
         }
+        setMobileDownloadLink(null);
 
         loadingStateSetters.setStatus("Select an image to start.");
         loadingStateSetters.setIsProcessing(false);

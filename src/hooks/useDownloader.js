@@ -1,7 +1,6 @@
 import JSZip from "jszip";
 import { fetchFile } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
-import { useState } from "react";
 
 const triggerDownload = async (blob, filename, setStatus, setMobileDownloadLink) => {
     const fileType = blob.type;
@@ -36,9 +35,7 @@ const triggerDownload = async (blob, filename, setStatus, setMobileDownloadLink)
     }
 };
 
-export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters, noBg }) => {
-    const [mobileDownloadLink, setMobileDownloadLink] = useState(null);
-
+export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters, noBg, setMobileDownloadLink }) => {
     const zipFilename = `glitch-images.zip`;
     const gifFilename = `animation_${gifDelay}ms.gif`;
     const videoFilename = `animation_${gifDelay}ms.mp4`;
@@ -139,18 +136,6 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
                 loadingStateSetters.setVideoProgress(Math.min(100, Math.round(progress * 100)));
             });
 
-            // await ffmpeg.exec([
-            //     "-i",
-            //     gifFilename, // Input file
-            //     "-movflags",
-            //     "+faststart", // Optimizes for web playback
-            //     "-c:v",
-            //     "libx264", // Video codec
-            //     "-pix_fmt",
-            //     "yuv420p", // Pixel format
-            //     videoFilename, // Output file
-            // ]);
-
             const videoBgColor = "black";
             const { width, height } = outputDimensions;
             await ffmpeg.exec([
@@ -196,6 +181,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
     };
 
     const handleDownload = async (type) => {
+        setMobileDownloadLink(null);
         isCancelledRef.current = false;
         loadingStateSetters.setIsDownloading(type);
         loadingStateSetters.setVideoProgress(0);
@@ -210,5 +196,5 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
         }
     };
 
-    return { handleDownload, mobileDownloadLink, setMobileDownloadLink };
+    return { handleDownload };
 };
