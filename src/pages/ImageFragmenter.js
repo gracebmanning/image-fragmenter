@@ -25,7 +25,6 @@ import ProgressBar from "../components/ProgressBar";
 import Layout from "../layouts/layout";
 import DelaySlider from "../components/DelaySlider";
 import InitialControls from "../components/InitialControls";
-import MobileDownloadLink from "../components/MobileDownloadLink";
 
 export default function ImageFragmenter() {
     const [originalImage, setOriginalImage] = useState(null);
@@ -36,7 +35,6 @@ export default function ImageFragmenter() {
     const [outputDimensions, setOutputDimensions] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [noBg, setNoBg] = useState(false);
-    const [mobileDownloadLink, setMobileDownloadLink] = useState(null);
 
     // FFmpeg State
     const [ffmpeg, setFfmpeg] = useState(null);
@@ -73,7 +71,6 @@ export default function ImageFragmenter() {
         isCancelledRef,
         loadingStateSetters,
         noBg,
-        setMobileDownloadLink,
     });
 
     const allBusy = loadingStates.isProcessing || loadingStates.isDownloading || loadingStates.isRenderingGif;
@@ -270,7 +267,6 @@ export default function ImageFragmenter() {
         if (fileInputRef.current) {
             fileInputRef.current.value = null;
         }
-        setMobileDownloadLink(null);
 
         loadingStateSetters.setStatus("Select an image to start.");
         loadingStateSetters.setIsProcessing(false);
@@ -346,14 +342,11 @@ export default function ImageFragmenter() {
                     {loadingStates.isDownloading === "video" && <ProgressBar type="video" gifProgress={loadingStates.gifProgress} videoProgress={loadingStates.videoProgress} />}
 
                     {generatedFrames.length > 0 && (
-                        <>
-                            <MobileDownloadLink linkInfo={mobileDownloadLink} setter={setMobileDownloadLink} />
-                            <DownloadPanel
-                                downloadFunctions={{ downloadZip: () => handleDownload("zip"), downloadGif: () => handleDownload("gif"), downloadVideo: () => handleDownload("video") }}
-                                allBusy={allBusy}
-                                noBg={noBg}
-                            />
-                        </>
+                        <DownloadPanel
+                            downloadFunctions={{ downloadZip: () => handleDownload("zip"), downloadGif: () => handleDownload("gif"), downloadVideo: () => handleDownload("video") }}
+                            allBusy={allBusy}
+                            noBg={noBg}
+                        />
                     )}
                 </div>
             </div>

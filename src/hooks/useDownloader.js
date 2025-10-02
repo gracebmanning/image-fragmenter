@@ -2,40 +2,27 @@ import JSZip from "jszip";
 import { fetchFile } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
 
-const triggerDownload = async (blob, filename, setStatus, setMobileDownloadLink) => {
-    const fileType = blob.type;
-    const isMediaFile = ["image/gif", "video/mp4"].includes(fileType);
+const triggerDownload = async (blob, filename, setStatus) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+
+    // cleanup
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
     const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
-
-    // GIFs and Videos on Mobile
-    if (isMobile && isMediaFile) {
-        const url = URL.createObjectURL(blob);
-        setMobileDownloadLink({
-            url: url,
-            fileType: fileType,
-        });
-
-        setStatus(`Your ${fileType} is ready!`);
-        return;
-    }
-
-    // GIFs/Videos on Desktop, ZIPs on all devices
-    else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-
-        // cleanup
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    if (isMobile) {
+        setStatus("Download started! Check your Files app.");
+    } else {
         setStatus("Download started!");
     }
 };
 
-export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters, noBg, setMobileDownloadLink }) => {
+export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters, noBg }) => {
     const zipFilename = `glitch-images.zip`;
     const gifFilename = `animation_${gifDelay}ms.gif`;
     const videoFilename = `animation_${gifDelay}ms.mp4`;
@@ -84,7 +71,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
 
         loadingStateSetters.setStatus("Generating ZIP file...");
         const zipBlob = await zip.generateAsync({ type: "blob" });
-        triggerDownload(zipBlob, zipFilename, loadingStateSetters.setStatus, setMobileDownloadLink);
+        triggerDownload(zipBlob, zipFilename, loadingStateSetters.setStatus);
         loadingStateSetters.setIsDownloading(null);
     };
 
@@ -93,7 +80,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
         try {
             const finalGifBlob = await generateFinalGifBlob(gifDelay);
             if (!isCancelledRef.current) {
-                triggerDownload(finalGifBlob, gifFilename, loadingStateSetters.setStatus, setMobileDownloadLink);
+                triggerDownload(finalGifBlob, gifFilename, loadingStateSetters.setStatus);
                 loadingStateSetters.setStatus("GIF download started!");
             }
         } catch (error) {
@@ -155,7 +142,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
             loadingStateSetters.setStatus("Finalizing video file...");
             const data = await ffmpeg.readFile(videoFilename);
             const videoBlob = new Blob([data], { type: "video/mp4" });
-            triggerDownload(videoBlob, videoFilename, loadingStateSetters.setStatus, setMobileDownloadLink);
+            triggerDownload(videoBlob, videoFilename, loadingStateSetters.setStatus);
             loadingStateSetters.setStatus("Video download started!");
         } catch (error) {
             if (!isCancelledRef.current) {
@@ -181,7 +168,6 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
     };
 
     const handleDownload = async (type) => {
-        setMobileDownloadLink(null);
         isCancelledRef.current = false;
         loadingStateSetters.setIsDownloading(type);
         loadingStateSetters.setVideoProgress(0);
@@ -192,7 +178,6 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
             else if (type === "video") await downloadVideo();
         } catch (error) {
             console.error(`Failed to download ${type}:`, error);
-        } finally {
         }
     };
 
