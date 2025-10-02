@@ -2,7 +2,7 @@ import JSZip from "jszip";
 import { fetchFile } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
 
-const triggerDownload = async (blob, filename, setStatus) => {
+const triggerDownload = async (blob, filename) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -13,19 +13,13 @@ const triggerDownload = async (blob, filename, setStatus) => {
     // cleanup
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-        setStatus("Download started! Check your Files app.");
-    } else {
-        setStatus("Download started!");
-    }
 };
 
 export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters, noBg }) => {
     const zipFilename = `glitch-images.zip`;
     const gifFilename = `animation_${gifDelay}ms.gif`;
     const videoFilename = `animation_${gifDelay}ms.mp4`;
+    const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
 
     const downloadZip = async () => {
         if (typeof JSZip === "undefined") {
@@ -71,7 +65,12 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
 
         loadingStateSetters.setStatus("Generating ZIP file...");
         const zipBlob = await zip.generateAsync({ type: "blob" });
-        triggerDownload(zipBlob, zipFilename, loadingStateSetters.setStatus);
+        triggerDownload(zipBlob, zipFilename);
+        if (isMobile) {
+            loadingStateSetters.setStatus("Zip download started! Check your Files app.");
+        } else {
+            loadingStateSetters.setStatus("Zip download started!");
+        }
         loadingStateSetters.setIsDownloading(null);
     };
 
@@ -80,8 +79,12 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
         try {
             const finalGifBlob = await generateFinalGifBlob(gifDelay);
             if (!isCancelledRef.current) {
-                triggerDownload(finalGifBlob, gifFilename, loadingStateSetters.setStatus);
-                loadingStateSetters.setStatus("GIF download started!");
+                triggerDownload(finalGifBlob, gifFilename);
+                if (isMobile) {
+                    loadingStateSetters.setStatus("GIF download started! Check your Files app.");
+                } else {
+                    loadingStateSetters.setStatus("GIF download started!");
+                }
             }
         } catch (error) {
             if (!isCancelledRef.current) {
@@ -142,8 +145,12 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
             loadingStateSetters.setStatus("Finalizing video file...");
             const data = await ffmpeg.readFile(videoFilename);
             const videoBlob = new Blob([data], { type: "video/mp4" });
-            triggerDownload(videoBlob, videoFilename, loadingStateSetters.setStatus);
-            loadingStateSetters.setStatus("Video download started!");
+            triggerDownload(videoBlob, videoFilename);
+            if (isMobile) {
+                loadingStateSetters.setStatus("Video download started! Check your Files app.");
+            } else {
+                loadingStateSetters.setStatus("Video download started!");
+            }
         } catch (error) {
             if (!isCancelledRef.current) {
                 console.error("Error converting GIF to video with FFmpeg:", error);
