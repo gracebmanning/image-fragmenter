@@ -3,42 +3,16 @@ import { fetchFile } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
 
 const triggerDownload = async (blob, filename) => {
-    const file = new File([blob], filename, { type: blob.type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
 
-    // check for iOS devices
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-    // files types that should use the Web Share API on mobile
-    const mediaTypesForSharing = ["image/gif", "video/mp4"];
-    const shouldUseShareAPI = isIOS && mediaTypesForSharing.includes(file.type) && navigator.share;
-
-    // use Web Share API on mobile if available
-    if (shouldUseShareAPI) {
-        // CASE 1: Gif/Video on an iOS device
-        try {
-            await navigator.share({
-                files: [file],
-                title: "My Fragmented Image",
-                text: "Check out this animation!",
-            });
-        } catch (error) {
-            // catch if the user cancels the share.
-            // don't need a fallback here because cancelling is intentional.
-            console.log("Share was cancelled or failed", error);
-        }
-    } else {
-        // CASE 2: GIFs/Videos on Desktop/non-iOS mobile, ZIPs on all devices
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-
-        // cleanup
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
+    // cleanup
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 };
 
 export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters, noBg }) => {
@@ -91,7 +65,7 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
         loadingStateSetters.setStatus("Generating ZIP file...");
         const zipBlob = await zip.generateAsync({ type: "blob" });
         triggerDownload(zipBlob, zipFilename);
-        loadingStateSetters.setStatus("ZIP download started!");
+        loadingStateSetters.setStatus("Zip download started!");
         loadingStateSetters.setIsDownloading(null);
     };
 
@@ -142,18 +116,6 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
             ffmpeg.on("progress", ({ progress }) => {
                 loadingStateSetters.setVideoProgress(Math.min(100, Math.round(progress * 100)));
             });
-
-            // await ffmpeg.exec([
-            //     "-i",
-            //     gifFilename, // Input file
-            //     "-movflags",
-            //     "+faststart", // Optimizes for web playback
-            //     "-c:v",
-            //     "libx264", // Video codec
-            //     "-pix_fmt",
-            //     "yuv420p", // Pixel format
-            //     videoFilename, // Output file
-            // ]);
 
             const videoBgColor = "black";
             const { width, height } = outputDimensions;
@@ -210,7 +172,6 @@ export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifD
             else if (type === "video") await downloadVideo();
         } catch (error) {
             console.error(`Failed to download ${type}:`, error);
-        } finally {
         }
     };
 
