@@ -3,19 +3,37 @@ import { fetchFile } from "@ffmpeg/util";
 import applyEffects from "../utils/imageEffects";
 
 const triggerDownload = async (blob, filename) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-    // cleanup
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (isIOS) {
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 100); // don't revoke immediately
+    } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
 };
 
-export const useDownloader = ({ preloadedImages, outputDimensions, effects, gifDelay, generateFinalGifBlob, ffmpeg, ffmpegRead, isCancelledRef, loadingStateSetters, noBg }) => {
+export const useDownloader = ({
+    preloadedImages,
+    outputDimensions,
+    effects,
+    gifDelay,
+    generateFinalGifBlob,
+    ffmpeg,
+    ffmpegRead,
+    isCancelledRef,
+    loadingStateSetters,
+    noBg,
+}) => {
     const zipFilename = `glitch-images.zip`;
     const gifFilename = `animation_${gifDelay}ms.gif`;
     const videoFilename = `animation_${gifDelay}ms.mp4`;
